@@ -66,7 +66,7 @@
     .form-grid .wide { grid-column: 1 / -1; }
 
     .tree { list-style: none; display: flex; flex-direction: column; gap: 6px; }
-    .row { display: flex; align-items: center; gap: 8px; padding: 10px 8px 10px calc(12px + var(--depth, 0) * 16px); border-radius: 12px; background: var(--pt-surface); border: 1px solid var(--pt-border); min-width: 0; }
+    .row { display: flex; align-items: center; gap: 8px; padding: 10px 8px 10px 12px; margin-left: calc(var(--depth, 0) * 20px); border-radius: 12px; background: var(--pt-surface); border: 1px solid var(--pt-border); min-width: 0; }
     .row.is-group { background: #1c1f40; }
     .row.archived { opacity: 0.5; }
     .row-main { flex: 1; min-width: 0; }
@@ -130,7 +130,7 @@
 
     @media (max-width: 600px) {
       body { padding: 12px 12px 40px; }
-      .row { flex-wrap: wrap; padding-left: calc(10px + min(var(--depth, 0), 3) * 10px); }
+      .row { flex-wrap: wrap; padding-left: 12px; margin-left: calc(min(var(--depth, 0), 3) * 14px); }
       .row-main { flex-basis: 100%; }
       .actions { width: 100%; justify-content: flex-end; border-top: 1px solid var(--pt-border); padding-top: 4px; }
       .res-add { grid-template-columns: minmax(0, 1fr); }
