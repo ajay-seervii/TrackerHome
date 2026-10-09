@@ -28,7 +28,8 @@ Pivot-Tracker/
 ├── admin.html           # Manage tasks (tracker creators only)
 ├── app.js               # Shared Supabase client, auth, SVG icons, data helpers
 ├── app.css              # Shared nav bar, sign-in gate, toasts, buttons
-├── supabase-setup.sql   # Repeatable schema, policies, functions, seeds
+├── db/schema.sql        # DDL: tables, constraints, functions, security (re-runnable)
+├── db/seed.sql          # DML: owner, trackers, badges, built-in task lists (re-runnable)
 └── GODOT_TRACKER_CONTEXT.md
 ```
 
@@ -53,25 +54,24 @@ In Supabase:
 ## Setup
 
 1. Back up the database (Database → Backups, or export the tables).
-2. Open SQL Editor and run all of `supabase-setup.sql`. It is safe to run again later.
-3. Sign in once on the home page, then follow STEP 2 at the bottom of the SQL file:
+2. Sign in once on the home page so your account exists.
+3. In the SQL Editor run `db/schema.sql`, then `db/seed.sql`. Both are safe to run again; seeding never overwrites rows you edited.
+4. Optional one-off commands are listed at the bottom of `db/seed.sql`:
    - `pt_admin_approve_user` - approve an account
    - `pt_admin_link_tracker` - attach an existing tracker (keeps its progress)
    - `pt_admin_create_tracker` - create a new tracker
-   - `pt_admin_seed` - add the built-in Godot or career task lists
    - `pt_admin_migrate_legacy` - move old Godot progress into per-task rows
-   - `pt_admin_grant` - give someone access to a tracker
+   - insert a badge row - new badge, no code change
 
-The `pt_admin_*` functions can only be run from the SQL Editor, not from the browser.
+Access for other people is set on the Manage page (Access tab). The `pt_admin_*` functions can only be run from the SQL Editor, not from the browser.
 
 ### Adding a tracker for a child
 ```sql
 select pt_admin_approve_user('child@example.com', 'Arjun', 'Asia/Kolkata');
 select pt_admin_create_tracker('arjun-goals', 'Arjun''s Goals', 'Homework, reading and chores',
   'you@example.com', 'standard', null, 'star', true, true);
-select pt_admin_grant('arjun-goals', 'child@example.com', 'member');
 ```
-Then add tasks on the Manage tasks page. The child opens it from their home page; you approve their completions from yours.
+Then on the Manage page give the child **Read & write** access and add tasks. The child opens it from their home page; you approve their completions from yours.
 
 ---
 
@@ -241,7 +241,7 @@ Push the folder to a GitHub repo and enable Pages (Settings → Pages → main b
 
 ## Testing Checklist
 
-- [ ] Run `supabase-setup.sql` twice; the second run makes no changes to data
+- [ ] Run `db/schema.sql` and `db/seed.sql` twice; the second run makes no changes to data
 - [ ] Seed counts: Godot 25 tasks / 695 XP, career 68 tasks
 - [ ] Godot level, XP and achievements match what they were before migration
 - [ ] Home: sign in → Life Level, streak, tracker cards, activity show
@@ -265,7 +265,7 @@ Push the folder to a GitHub repo and enable Pages (Settings → Pages → main b
 Run `select pt_admin_approve_user('email', 'Name', 'Time/Zone');` in the SQL Editor.
 
 ### "This tracker was not found"
-The tracker needs a slug (`godot`, `career-pivot`) and a `tracker_access` row for you. See STEP 2 in the SQL file.
+The tracker needs a slug (`godot`, `career-pivot`) and a `tracker_access` row for you. Run `db/seed.sql`, or give access on the Manage page.
 
 ### Sign-in returns to the wrong page or fails
 Check Authentication → URL Configuration contains the exact `index.html` URL you are using.
