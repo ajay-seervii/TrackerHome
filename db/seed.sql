@@ -257,23 +257,142 @@ end $$;
 commit;
 
 -- =====================================================================
--- Optional one-off commands (run individually when needed)
+-- COOKBOOK: common commands. Nothing below runs automatically.
+-- Copy one block into the SQL Editor, change the values, and run it.
 -- =====================================================================
+
+-- ---------------------------------------------------------------------
+-- 1. Look things up
+-- ---------------------------------------------------------------------
+-- Who is approved:
+--    select email, display_name from users order by email;
 --
--- Move progress saved by the old Godot tracker into the new tables (keeps level/XP):
---    select pt_admin_migrate_legacy('godot');
+-- Which trackers exist (the "slug" is the short name used below):
+--    select slug, name from trackers order by name;
 --
--- Approve another person (they sign in once first):
---    select pt_admin_approve_user('child@example.com', 'Arjun', 'Asia/Kolkata');
+-- Who can see a tracker, and what they can do:
+--    select u.email, a.role, a.can_edit
+--    from tracker_access a join users u on u.id = a.user_id
+--    where a.tracker_id = (select id from trackers where slug = 'godot');
+
+-- ---------------------------------------------------------------------
+-- 2. Let a new person log in
+-- ---------------------------------------------------------------------
+-- They must open the home page and press "Sign in with Google" once first.
+-- Then approve them (name and time zone are optional):
+--    select pt_admin_approve_user('friend@gmail.com', 'Friend Name', 'Asia/Kolkata');
 --
--- New tracker for a child, reviewed by you; then set access on the Manage page:
+-- Approved people can log in but see no trackers until you give access (step 3).
+
+-- ---------------------------------------------------------------------
+-- 3. Give or remove access to a tracker
+--    Easiest: Settings (top right) > Manage trackers > Access tab.
+--    Or in SQL:
+-- ---------------------------------------------------------------------
+-- Read & write (can tick tasks and earn XP):
+--    select pt_admin_grant('godot', 'friend@gmail.com', 'member', true);
+--
+-- Read only (can look, cannot tick):
+--    select pt_admin_grant('godot', 'friend@gmail.com', 'member', false);
+--
+-- Reviewer (approves a child's ticks; only for trackers that need approval):
+--    select pt_admin_grant('arjun-goals', 'parent@gmail.com', 'guardian');
+--
+-- Remove access completely:
+--    delete from tracker_access
+--    where tracker_id = (select id from trackers where slug = 'godot')
+--      and user_id = (select id from users where email = 'friend@gmail.com');
+
+-- ---------------------------------------------------------------------
+-- 4. Create a new tracker (you become its owner)
+-- ---------------------------------------------------------------------
+-- Arguments in order: slug, name, description, owner email,
+--   'standard', page (null = generic page), icon, needs approval?, can untick?
+-- Icons: target, gamepad, briefcase, book, star, heart, code, trophy, zap, users
+--
+-- Normal tracker for yourself:
+--    select pt_admin_create_tracker('reading', 'Reading Habit', 'Read 12 books this year',
+--      'raanginrajasthan@gmail.com', 'standard', null, 'book', false, true);
+--
+-- Tracker for a child, where you approve their ticks before XP is given:
 --    select pt_admin_create_tracker('arjun-goals', 'Arjun''s Goals', 'Homework, reading and chores',
 --      'raanginrajasthan@gmail.com', 'standard', null, 'star', true, true);
+--    select pt_admin_grant('arjun-goals', 'arjun@gmail.com', 'member', true);
+
+-- ---------------------------------------------------------------------
+-- 5. Add tasks: a full sample project ("Reading Habit" from step 4)
+--    You can also do this on the Manage page (Tasks tab).
+--    Running a block twice adds the rows twice.
+-- ---------------------------------------------------------------------
+-- kind:       'phase' / 'week' / 'section' = a group that holds tasks
+--             'task'   = something you tick off and earn XP for
+-- xp:         points for finishing the task (groups always use 0)
+-- difficulty: 'easy', 'medium', 'hard' or null
+-- sort_order: position in the list, lowest first (use 10, 20, 30 to leave gaps)
 --
--- Add a badge:
+-- Step A: add two groups:
+--    insert into tasks (tracker_id, kind, title, sort_order)
+--    select id, 'phase', v.title, v.ord
+--    from trackers, (values ('January', 10), ('February', 20)) v(title, ord)
+--    where slug = 'reading';
+--
+-- Step B: add tasks inside the "January" group:
+--    insert into tasks (tracker_id, parent_id, kind, title, xp, difficulty, sort_order)
+--    select g.tracker_id, g.id, 'task', v.title, v.xp, v.difficulty, v.ord
+--    from tasks g
+--    join trackers t on t.id = g.tracker_id and t.slug = 'reading'
+--    cross join (values
+--        ('Pick a book',            10, 'easy',   10),
+--        ('Read 50 pages',          20, 'medium', 20),
+--        ('Finish the book',        40, 'hard',   30),
+--        ('Write a 3-line summary', 15, 'easy',   40)
+--      ) v(title, xp, difficulty, ord)
+--    where g.kind = 'phase' and g.title = 'January';
+--
+-- A single task with no group (shows at the top level):
+--    insert into tasks (tracker_id, kind, title, xp, difficulty, sort_order)
+--    select id, 'task', 'Join a book club', 25, 'medium', 5 from trackers where slug = 'reading';
+--
+-- A link shown under a group:
+--    insert into task_resources (task_id, title, url, sort_order)
+--    select g.id, 'Goodreads', 'https://www.goodreads.com/', 10
+--    from tasks g join trackers t on t.id = g.tracker_id and t.slug = 'reading'
+--    where g.kind = 'phase' and g.title = 'January';
+
+-- ---------------------------------------------------------------------
+-- 6. Change or hide tasks
+-- ---------------------------------------------------------------------
+-- Change XP (only affects future ticks; XP already earned stays):
+--    update tasks set xp = 30
+--    where title = 'Read 50 pages' and tracker_id = (select id from trackers where slug = 'reading');
+--
+-- Hide a task but keep its history and earned XP:
+--    update tasks set archived_at = now()
+--    where title = 'Join a book club' and tracker_id = (select id from trackers where slug = 'reading');
+--
+-- Bring it back:
+--    update tasks set archived_at = null
+--    where title = 'Join a book club' and tracker_id = (select id from trackers where slug = 'reading');
+
+-- ---------------------------------------------------------------------
+-- 7. Badges
+-- ---------------------------------------------------------------------
+-- metric: tasks_done, best_streak, current_streak, level, life_xp, today_xp,
+--         tracker_tasks_done, tracker_percent, tracker_xp (tracker_* also need tracker_id)
+--
+-- Badge for everyone:
 --    insert into badges (slug, name, description, icon, metric, threshold, sort_order)
 --    values ('marathon', 'Marathon', '14-day streak', 'rocket', 'best_streak', 14, 65);
+--
+-- Badge for finishing one tracker:
 --    insert into badges (slug, name, description, icon, metric, threshold, tracker_id, sort_order)
---    values ('godot-done', 'Game Dev', 'Finish the Godot game', 'gamepad', 'tracker_percent', 100,
---            (select id from trackers where slug = 'godot'), 110);
---    Hide one without deleting it: update badges set active = false where slug = 'marathon';
+--    values ('bookworm', 'Bookworm', 'Finish the Reading Habit', 'book', 'tracker_percent', 100,
+--            (select id from trackers where slug = 'reading'), 110);
+--
+-- Hide a badge without deleting it:
+--    update badges set active = false where slug = 'marathon';
+
+-- ---------------------------------------------------------------------
+-- 8. One-time: bring over progress from the old Godot page (keeps level and XP)
+-- ---------------------------------------------------------------------
+--    select pt_admin_migrate_legacy('godot');
