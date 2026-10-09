@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>TrackerHome</title>
   <meta name="theme-color" content="#0d0e1c">
-  <link rel="stylesheet" href="app.css">
+  <link rel="stylesheet" href="assets/css/app.css">
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
 
@@ -271,7 +271,7 @@
   </div>
 
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <script src="app.js"></script>
+  <script src="assets/js/app.js"></script>
   <script>
     const ACHIEVEMENT_NAMES = { a1: 'Started', a2: 'Player', a3: 'Combat', a4: 'Polish', a5: 'Quarter', a6: 'Master' };
     const REASON_LABELS = { task: 'Task completed', achievement: 'Achievement', legacy_balance: 'Earlier progress', refund: 'Task unchecked', reset: 'Tracker reset', adjustment: 'Adjustment' };
@@ -442,7 +442,7 @@
     }
 
     function trackerHref(t) {
-      return t.page || `tracker.html?t=${encodeURIComponent(t.slug || '')}`;
+      return `pages/${t.page || `tracker.html?t=${encodeURIComponent(t.slug || '')}`}`;
     }
 
     function renderTrackers(trackers) {

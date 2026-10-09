@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Tracker</title>
-  <link rel="stylesheet" href="app.css">
+  <link rel="stylesheet" href="../assets/css/app.css">
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
 
@@ -98,7 +98,7 @@
   </div>
 
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <script src="app.js"></script>
+  <script src="../assets/js/app.js"></script>
   <script>
     const slug = new URLSearchParams(location.search).get('t') || '';
     let data = null;
@@ -284,10 +284,10 @@
         if (!/^[a-z0-9-]{1,40}$/.test(slug)) throw new Error('No tracker selected.');
         data = await PT.loadTracker(slug);
       } catch (error) {
-        PT.showGate(error.message, true, [PT.link('Home', 'home', 'index.html'), PT.button('Sign out', 'log-out', PT.signOut)]);
+        PT.showGate(error.message, true, [PT.link('Home', 'home', PT.url('index.html')), PT.button('Sign out', 'log-out', PT.signOut)]);
         return;
       }
-      PT.mountNav('#app', { admin: data.isCreator ? `admin.html?t=${encodeURIComponent(slug)}` : null });
+      PT.mountNav('#app');
       document.title = data.tracker.name;
       document.getElementById('title').textContent = data.tracker.name;
       document.getElementById('desc').textContent = data.tracker.description || '';

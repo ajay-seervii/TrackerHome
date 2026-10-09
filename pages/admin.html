@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Manage trackers</title>
   <meta name="theme-color" content="#0d0e1c">
-  <link rel="stylesheet" href="app.css">
+  <link rel="stylesheet" href="../assets/css/app.css">
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
 
@@ -227,7 +227,7 @@
   </dialog>
 
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <script src="app.js"></script>
+  <script src="../assets/js/app.js"></script>
   <script>
     const GROUP_KINDS = ['phase', 'week', 'section'];
     const params = new URLSearchParams(location.search);
@@ -626,12 +626,12 @@
       try {
         await loadTrackers();
         if (!trackers.length) {
-          PT.showGate('You do not own any trackers yet. Create one in the Supabase SQL Editor with pt_admin_create_tracker.', true, [PT.link('Home', 'home', 'index.html')]);
+          PT.showGate('You do not own any trackers yet. Create one in the Supabase SQL Editor with pt_admin_create_tracker.', true, [PT.link('Home', 'home', PT.url('index.html'))]);
           return;
         }
         await selectTracker($('tracker-select').value);
       } catch (error) {
-        PT.showGate(error.message, true, [PT.link('Home', 'home', 'index.html')]);
+        PT.showGate(error.message, true, [PT.link('Home', 'home', PT.url('index.html'))]);
         return;
       }
 

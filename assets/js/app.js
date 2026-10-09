@@ -2,6 +2,13 @@
 (function () {
   'use strict';
 
+  // Site root, derived from this script's location (assets/js/app.js).
+  const ROOT = new URL('../../', document.currentScript ? document.currentScript.src : location.href).href;
+
+  function url(path) {
+    return new URL(path, ROOT).href;
+  }
+
   // Public client values only; never put the service-role key in this file.
   const CONFIG = {
     supabaseUrl: 'https://uxoijaioqqnoncdmuefi.supabase.co',
@@ -120,22 +127,22 @@
     auth: { storageKey: CONFIG.storageKey, persistSession: true, autoRefreshToken: true, detectSessionInUrl: true, flowType: 'pkce' },
   });
 
-  const SAFE_NEXT = /^[a-z0-9_]+\.html(\?[a-z0-9=&_-]{0,80})?$/i;
+  const SAFE_NEXT = /^(pages\/)?[a-z0-9_]+\.html(\?[a-z0-9=&_-]{0,80})?$/i;
 
   function safeNext(value) {
     return value && SAFE_NEXT.test(value) ? value : null;
   }
 
   function currentPage() {
-    const file = location.pathname.split('/').pop() || 'index.html';
-    return file + location.search;
+    const here = location.href.split('#')[0];
+    return here.startsWith(ROOT) ? here.slice(ROOT.length) || 'index.html' : 'index.html';
   }
 
   function homeUrl(next) {
-    const url = new URL('index.html', location.href);
+    const home = new URL('index.html', ROOT);
     const target = safeNext(next);
-    if (target && !target.startsWith('index.html')) url.searchParams.set('next', target);
-    return url.href;
+    if (target && !target.startsWith('index.html')) home.searchParams.set('next', target);
+    return home.href;
   }
 
   async function signIn(next) {
@@ -150,7 +157,7 @@
     try {
       await client.auth.signOut();
     } finally {
-      location.replace(new URL('index.html', location.href).href);
+      location.replace(url('index.html'));
     }
   }
 
@@ -227,7 +234,7 @@
     try {
       profile = await loadMe();
     } catch (error) {
-      showGate(friendlyError(error), true, [button('Try again', 'rotate-ccw', () => location.reload()), link('Home', 'home', 'index.html')]);
+      showGate(friendlyError(error), true, [button('Try again', 'rotate-ccw', () => location.reload()), link('Home', 'home', url('index.html'))]);
       throw error;
     }
     if (!profile) {
@@ -235,7 +242,7 @@
       return new Promise(() => {});
     }
     if (!profile.approved) {
-      showGate('Your account is waiting for approval.', true, [link('Home', 'home', 'index.html'), button('Sign out', 'log-out', signOut)]);
+      showGate('Your account is waiting for approval.', true, [link('Home', 'home', url('index.html')), button('Sign out', 'log-out', signOut)]);
       return new Promise(() => {});
     }
     watchSignOut();
@@ -247,11 +254,11 @@
     if (watching) return;
     watching = true;
     client.auth.onAuthStateChange(event => {
-      if (event === 'SIGNED_OUT') location.replace(new URL('index.html', location.href).href);
+      if (event === 'SIGNED_OUT') location.replace(url('index.html'));
     });
     window.addEventListener('storage', event => {
       if (event.key === CONFIG.storageKey && !event.newValue) {
-        location.replace(new URL('index.html', location.href).href);
+        location.replace(url('index.html'));
       }
     });
   }
@@ -299,8 +306,8 @@
         <button type="submit" class="pt-btn pt-btn--primary pt-needs-online">Save</button>
       </form>
       <nav class="pt-sheet-links">
-        <a href="index.html">${icon('home')}<span>Home</span>${icon('chevron-right', 'pt-chev')}</a>
-        <a href="admin.html" data-manage hidden>${icon('sliders')}<span>Manage trackers</span>${icon('chevron-right', 'pt-chev')}</a>
+        <a href="${esc(url('index.html'))}">${icon('home')}<span>Home</span>${icon('chevron-right', 'pt-chev')}</a>
+        <a href="${esc(url('pages/admin.html'))}" data-manage hidden>${icon('sliders')}<span>Manage trackers</span>${icon('chevron-right', 'pt-chev')}</a>
         <button type="button" data-signout class="pt-danger-link">${icon('log-out')}<span>Sign out</span></button>
       </nav>`;
     sheet.querySelector('[data-close]').addEventListener('click', () => sheet.close());
@@ -340,7 +347,7 @@
     nav.className = 'pt-nav';
     nav.setAttribute('aria-label', 'Account');
     nav.innerHTML = `
-      ${opts.brand ? `<span class="pt-nav-brand">${icon('trophy')}<span>${esc(opts.brand)}</span></span>` : `<a class="pt-nav-link" href="index.html">${icon(opts.backIcon || 'home')}<span>${esc(opts.backLabel || 'Home')}</span></a>`}
+      ${opts.brand ? `<span class="pt-nav-brand">${icon('trophy')}<span>${esc(opts.brand)}</span></span>` : `<a class="pt-nav-link" href="${esc(url('index.html'))}">${icon(opts.backIcon || 'home')}<span>${esc(opts.backLabel || 'Home')}</span></a>`}
       <span class="pt-nav-spacer"></span>
       <span class="pt-nav-offline" hidden>${icon('wifi-off')}<span>Offline</span></span>
       <span class="pt-nav-extra"></span>
@@ -470,6 +477,7 @@
 
   window.PT = {
     client,
+    url,
     icon,
     iconEl,
     hydrateIcons,

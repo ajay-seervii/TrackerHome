@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>12-Week Career Pivot Tracker</title>
-    <link rel="stylesheet" href="app.css">
+    <link rel="stylesheet" href="../assets/css/app.css">
     <style>
         * {
             margin: 0;
@@ -917,7 +917,7 @@
     </dialog>
 
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-    <script src="app.js"></script>
+    <script src="../assets/js/app.js"></script>
     <script>
         const TRACKER_SLUG = 'career-pivot';
         const LEGACY_STORAGE_KEY = 'careerPivotProgress';
@@ -1002,10 +1002,10 @@
             try {
                 await loadPlan();
             } catch (error) {
-                PT.showGate(error.message, true, [PT.link('Home', 'home', 'index.html'), PT.button('Sign out', 'log-out', PT.signOut)]);
+                PT.showGate(error.message, true, [PT.link('Home', 'home', PT.url('index.html')), PT.button('Sign out', 'log-out', PT.signOut)]);
                 return;
             }
-            PT.mountNav('.container', { admin: state.isCreator ? `admin.html?t=${TRACKER_SLUG}` : null });
+            PT.mountNav('.container');
             renderTimeline();
             updateProgress();
             setupSettingsPopup();

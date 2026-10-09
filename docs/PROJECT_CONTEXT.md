@@ -21,19 +21,25 @@
 
 ```
 Pivot-Tracker/
-├── index.html           # Home: sign in, Life Level, streak, trackers, approvals, activity
-├── godot_plan.html      # Godot tracker (levels, achievements, skills)
-├── 3month_plan.html     # 12-week career tracker (months, weeks, sections, resources)
-├── tracker.html         # Generic tracker page: tracker.html?t=<slug>
-├── admin.html           # Manage tasks (tracker creators only)
-├── app.js               # Shared Supabase client, auth, SVG icons, data helpers
-├── app.css              # Shared nav bar, sign-in gate, toasts, buttons
-├── db/schema.sql        # DDL: tables, constraints, functions, security (re-runnable)
-├── db/seed.sql          # DML: owner, trackers, badges, built-in task lists (re-runnable)
-└── PROJECT_CONTEXT.md
+├── index.html              # Home: sign in, Life Level, streak, quests, trackers, badges
+├── pages/
+│   ├── godot_plan.html     # Godot tracker (levels, achievements, skills)
+│   ├── 3month_plan.html    # 12-week career tracker (months, weeks, sections, resources)
+│   ├── tracker.html        # Generic tracker page: pages/tracker.html?t=<slug>
+│   └── admin.html          # Manage: tasks, access, tracker settings (owners only)
+├── assets/
+│   ├── css/app.css         # Shared nav, settings sheet, sign-in gate, toasts, buttons
+│   └── js/app.js           # Shared Supabase client, auth, SVG icons, data helpers
+├── db/
+│   ├── schema.sql          # DDL: tables, constraints, functions, security (re-runnable)
+│   └── seed.sql            # DML: owner, trackers, badges, built-in task lists (re-runnable)
+└── docs/
+    └── PROJECT_CONTEXT.md
 ```
 
-All icons are inline SVG from the set in `app.js` (`PT.icon(name)`). Do not use emoji.
+`index.html` stays at the root because GitHub Pages serves it as the site's home. `trackers.page` stores a file name inside `pages/`.
+
+All icons are inline SVG from the set in `assets/js/app.js` (`PT.icon(name)`). Do not use emoji.
 
 ---
 
@@ -41,7 +47,7 @@ All icons are inline SVG from the set in `app.js` (`PT.icon(name)`). Do not use 
 
 Project: ToDoTrackers (`uxoijaioqqnoncdmuefi`, ap-south-1). URL: `https://uxoijaioqqnoncdmuefi.supabase.co`.
 
-Public Supabase values live at the top of `app.js` (`CONFIG`). Only the publishable/anon key belongs there; security comes from RLS and the database functions.
+Public Supabase values live at the top of `assets/js/app.js` (`CONFIG`). Only the publishable/anon key belongs there; security comes from RLS and the database functions.
 
 In Supabase:
 1. Authentication → Providers → enable Google.
@@ -189,13 +195,13 @@ Skills are cosmetic for now; the multipliers are not applied.
 - Tasks can be unchecked; the XP originally awarded is refunded.
 
 ### Other trackers
-Use `tracker.html?t=<slug>`. Any mix of phases, weeks, sections and tasks is shown as collapsible groups.
+Use `pages/tracker.html?t=<slug>`. Any mix of phases, weeks, sections and tasks is shown as collapsible groups.
 
 ---
 
 ## Design
 
-- All icons are inline SVG from `app.js`; no emoji.
+- All icons are inline SVG from `assets/js/app.js`; no emoji.
 - Each page keeps its own look and sets `--pt-*` CSS variables so the shared nav, gate and toasts match:
   - Godot: dark vaporwave (`#0a0e27`, cyan/pink accents)
   - Career: warm light (`#f5f1e8`, green accent)
@@ -203,7 +209,7 @@ Use `tracker.html?t=<slug>`. Any mix of phases, weeks, sections and tasks is sho
 
 ---
 
-## Shared Helpers (`app.js`, global `PT`)
+## Shared Helpers (`assets/js/app.js`, global `PT`)
 
 ```js
 PT.requireAuth()             // Gate a page; redirect to home if signed out
@@ -253,7 +259,7 @@ Push the folder to a GitHub repo and enable Pages (Settings → Pages → main b
 - [ ] Godot: tick → XP, level up and achievements as before; cannot untick
 - [ ] Child tracker: child's tick is pending with no XP; approve on home → XP appears for the child
 - [ ] Manage tasks: add, edit, move, archive, restore, add links; changes show on the tracker
-- [ ] Non-creator opening `admin.html` cannot edit anything
+- [ ] Non-creator opening `pages/admin.html` cannot edit anything
 - [ ] Go offline → checkboxes disabled and "Offline" shown
 - [ ] Import from this browser twice → second time imports nothing new
 
