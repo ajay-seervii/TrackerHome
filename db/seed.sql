@@ -11,7 +11,7 @@ begin;
 -- ---------------------------------------------------------------------
 do $$
 declare
-  owner_email text := 'raanginrajasthan@gmail.com';
+  owner_email text := 'ajayace3@gmail.com';
 begin
   perform public.pt_admin_approve_user(owner_email, null, 'Asia/Kolkata');
   update public.users set is_admin = true where lower(email) = owner_email and not is_admin;
@@ -285,7 +285,7 @@ end $$;
 -- ---------------------------------------------------------------------
 do $$
 declare
-  owner_email text := 'raanginrajasthan@gmail.com';
+  owner_email text := 'ajayace3@gmail.com';
   r record;
   tid uuid;
 begin
@@ -503,12 +503,12 @@ commit;
 --
 -- Normal tracker for yourself:
 --    select pt__seed_tracker('reading', 'Reading Habit', 'Read 12 books this year',
---      'raanginrajasthan@gmail.com', 'checklist', 'minimal', 'book', false);
+--      'ajayace3@gmail.com', 'checklist', 'minimal', 'book', false);
 --
 -- Tracker for a child. XP is given as soon as they tick a task and shows as
 -- "pending review"; if you reject it, the XP is taken back:
 --    select pt__seed_tracker('arjun-goals', 'Arjun''s Goals', 'Homework, reading and chores',
---      'raanginrajasthan@gmail.com', 'quest', 'candy', 'star', true);
+--      'ajayace3@gmail.com', 'quest', 'candy', 'star', true);
 --    select pt_admin_grant('arjun-goals', 'arjun@gmail.com', 'member', true);
 
 -- ---------------------------------------------------------------------
