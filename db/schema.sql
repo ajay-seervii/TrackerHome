@@ -27,6 +27,8 @@ create table if not exists public.users (
 );
 alter table public.users add column if not exists display_name text;
 alter table public.users add column if not exists timezone text not null default 'UTC';
+-- Site admin: can add people from the portal. Not browser-writable.
+alter table public.users add column if not exists is_admin boolean not null default false;
 
 create or replace function public.pt__users_guard() returns trigger
 language plpgsql set search_path = public as $$
@@ -59,6 +61,9 @@ alter table public.trackers add column if not exists ruleset text not null defau
 alter table public.trackers add column if not exists allow_uncheck boolean not null default true;
 alter table public.trackers add column if not exists requires_approval boolean not null default false;
 alter table public.trackers add column if not exists sort_order int not null default 0;
+alter table public.trackers add column if not exists layout text not null default 'checklist';
+-- Free-form so a new theme only needs CSS; unknown names render as minimal.
+alter table public.trackers add column if not exists theme text not null default 'minimal';
 
 select pg_temp.ensure_constraint('public.trackers', 'trackers_slug_format', $c$check (slug is null or slug ~ '^[a-z0-9-]{1,40}$')$c$);
 select pg_temp.ensure_constraint('public.trackers', 'trackers_page_format', $c$check (page is null or page ~ '^[a-z0-9_]+\.html$')$c$);
@@ -66,6 +71,10 @@ select pg_temp.ensure_constraint('public.trackers', 'trackers_icon_format', $c$c
 select pg_temp.ensure_constraint('public.trackers', 'trackers_ruleset_valid', $c$check (ruleset in ('standard', 'godot'))$c$);
 -- Godot keeps level/achievement aggregates that cannot be rolled back safely.
 select pg_temp.ensure_constraint('public.trackers', 'trackers_godot_no_uncheck', $c$check (ruleset <> 'godot' or not allow_uncheck)$c$);
+select pg_temp.ensure_constraint('public.trackers', 'trackers_godot_no_approval', $c$check (ruleset <> 'godot' or not requires_approval)$c$);
+select pg_temp.ensure_constraint('public.trackers', 'trackers_layout_valid', $c$check (layout in ('checklist', 'timeline', 'quest'))$c$);
+select pg_temp.ensure_constraint('public.trackers', 'trackers_theme_format', $c$check (theme ~ '^[a-z-]{1,30}$')$c$);
+select pg_temp.ensure_constraint('public.trackers', 'trackers_name_length', $c$check (char_length(btrim(name)) between 1 and 80)$c$);
 create unique index if not exists trackers_slug_uidx on public.trackers(slug) where slug is not null;
 
 -- ---------------------------------------------------------------------
@@ -125,6 +134,7 @@ alter table public.tasks add column if not exists legacy_key text;
 alter table public.tasks add column if not exists archived_at timestamptz;
 alter table public.tasks add column if not exists updated_at timestamptz not null default now();
 alter table public.tasks add column if not exists month_number int generated always as ((week_number + 3) / 4) stored;
+alter table public.tasks add column if not exists repeat text not null default 'none';
 
 select pg_temp.ensure_constraint('public.tasks', 'tasks_kind_valid', $c$check (kind in ('phase', 'week', 'section', 'task', 'divider'))$c$);
 select pg_temp.ensure_constraint('public.tasks', 'tasks_title_length', $c$check (char_length(btrim(title)) between 1 and 300)$c$);
@@ -134,6 +144,7 @@ select pg_temp.ensure_constraint('public.tasks', 'tasks_difficulty_valid', $c$ch
 select pg_temp.ensure_constraint('public.tasks', 'tasks_week_range', $c$check (week_number is null or week_number between 1 and 520)$c$);
 select pg_temp.ensure_constraint('public.tasks', 'tasks_time_estimate_length', $c$check (time_estimate is null or char_length(time_estimate) <= 40)$c$);
 select pg_temp.ensure_constraint('public.tasks', 'tasks_description_length', $c$check (description is null or char_length(description) <= 2000)$c$);
+select pg_temp.ensure_constraint('public.tasks', 'tasks_repeat_valid', $c$check (repeat in ('none', 'daily', 'weekly') and (kind = 'task' or repeat = 'none'))$c$);
 create unique index if not exists tasks_tracker_seed_uidx on public.tasks(tracker_id, seed_key);
 create unique index if not exists tasks_tracker_legacy_uidx on public.tasks(tracker_id, legacy_key);
 create index if not exists tasks_tracker_parent_idx on public.tasks(tracker_id, parent_id, sort_order);
@@ -217,7 +228,10 @@ select pg_temp.ensure_constraint('public.task_resources', 'task_resources_title_
 create unique index if not exists task_resources_task_url_uidx on public.task_resources(task_id, url);
 
 -- ---------------------------------------------------------------------
--- task_progress: one row per user x task while it is done or awaiting review.
+-- task_progress: one row per user x task x period while it is done, waiting
+-- for review or sent back. period_key is 'once', 'd:<date>' for daily tasks
+-- or 'w:<monday>' for weekly tasks, in the user's time zone.
+-- XP is given on completion; a rejection takes it back.
 -- Unchecking deletes the row; the XP ledger keeps the history.
 -- ---------------------------------------------------------------------
 create table if not exists public.task_progress (
@@ -232,8 +246,14 @@ create table if not exists public.task_progress (
   approved_at timestamptz,
   updated_at timestamptz not null default now()
 );
+alter table public.task_progress add column if not exists period_key text not null default 'once';
+alter table public.task_progress add column if not exists review_note text;
 select pg_temp.ensure_constraint('public.task_progress', 'task_progress_status_valid', $c$check (status in ('pending', 'approved', 'rejected'))$c$);
-create unique index if not exists task_progress_user_task_uidx on public.task_progress(user_id, task_id);
+select pg_temp.ensure_constraint('public.task_progress', 'task_progress_period_format', $c$check (period_key ~ '^(once|[dw]:\d{4}-\d{2}-\d{2})$')$c$);
+select pg_temp.ensure_constraint('public.task_progress', 'task_progress_note_length', $c$check (review_note is null or char_length(review_note) <= 200)$c$);
+-- Replaced by the per-period index below (repeating tasks have one row per day/week).
+drop index if exists public.task_progress_user_task_uidx;
+create unique index if not exists task_progress_user_task_period_uidx on public.task_progress(user_id, task_id, period_key);
 create index if not exists task_progress_tracker_status_idx on public.task_progress(tracker_id, status);
 
 -- Created after task_progress exists because the guard references it.
@@ -259,7 +279,8 @@ create table if not exists public.xp_events (
   occurred_on date not null default current_date,
   created_at timestamptz not null default now()
 );
-select pg_temp.ensure_constraint('public.xp_events', 'xp_events_reason_valid', $c$check (reason in ('task', 'achievement', 'legacy_balance', 'refund', 'reset', 'adjustment'))$c$);
+alter table public.xp_events drop constraint if exists xp_events_reason_valid;
+select pg_temp.ensure_constraint('public.xp_events', 'xp_events_reason_valid_v2', $c$check (reason in ('task', 'achievement', 'legacy_balance', 'refund', 'reset', 'adjustment', 'rejected'))$c$);
 create index if not exists xp_events_user_created_idx on public.xp_events(user_id, created_at desc);
 create index if not exists xp_events_tracker_user_idx on public.xp_events(tracker_id, user_id);
 create unique index if not exists xp_events_legacy_once_uidx on public.xp_events(user_id, tracker_id) where reason = 'legacy_balance';
@@ -288,6 +309,26 @@ create table if not exists public.badges (
   constraint badges_icon_format check (icon ~ '^[a-z-]{1,30}$'),
   constraint badges_text_length check (char_length(name) between 1 and 40 and char_length(description) between 1 and 80)
 );
+
+-- ---------------------------------------------------------------------
+-- invites: people added by the site admin before their first sign-in.
+-- The first Google sign-in with this email approves them and applies
+-- grants ([{"tracker_id": ..., "level": "read|write|review"}]).
+-- ---------------------------------------------------------------------
+create table if not exists public.invites (
+  id uuid primary key default gen_random_uuid(),
+  email text not null,
+  display_name text,
+  timezone text not null default 'UTC',
+  grants jsonb not null default '[]'::jsonb,
+  invited_by uuid references auth.users(id) on delete set null,
+  created_at timestamptz not null default now(),
+  accepted_at timestamptz,
+  accepted_by uuid references auth.users(id) on delete set null
+);
+select pg_temp.ensure_constraint('public.invites', 'invites_email_format', $c$check (email = lower(email) and email ~ '^[^@\s]+@[^@\s]+\.[^@\s]+$' and char_length(email) <= 254)$c$);
+select pg_temp.ensure_constraint('public.invites', 'invites_grants_array', $c$check (jsonb_typeof(grants) = 'array')$c$);
+create unique index if not exists invites_open_email_uidx on public.invites(email) where accepted_at is null;
 
 -- =====================================================================
 -- Access helpers (used by RLS policies)
@@ -320,7 +361,7 @@ begin
   for r in
     select policyname, tablename from pg_policies
     where schemaname = 'public'
-      and tablename in ('users', 'trackers', 'tracker_access', 'progress', 'tasks', 'task_resources', 'task_progress', 'xp_events', 'badges')
+      and tablename in ('users', 'trackers', 'tracker_access', 'progress', 'tasks', 'task_resources', 'task_progress', 'xp_events', 'badges', 'invites')
   loop
     execute format('drop policy %I on public.%I', r.policyname, r.tablename);
   end loop;
@@ -335,6 +376,9 @@ alter table public.task_resources enable row level security;
 alter table public.task_progress enable row level security;
 alter table public.xp_events enable row level security;
 alter table public.badges enable row level security;
+-- No policies: invites are only reachable through the admin functions.
+alter table public.invites enable row level security;
+revoke all on public.invites from anon, authenticated;
 
 revoke all on public.badges from anon;
 revoke insert, update, delete on public.badges from authenticated;
@@ -350,10 +394,10 @@ grant select on public.users, public.trackers, public.tracker_access, public.pro
   public.tasks, public.task_resources, public.task_progress, public.xp_events to authenticated;
 
 grant update (display_name, timezone) on public.users to authenticated;
-grant update (name, description, icon, sort_order) on public.trackers to authenticated;
-grant insert (tracker_id, parent_id, kind, title, description, xp, difficulty, week_number, time_estimate, sort_order, archived_at)
+grant update (name, description, icon, sort_order, layout, theme) on public.trackers to authenticated;
+grant insert (tracker_id, parent_id, kind, title, description, xp, difficulty, week_number, time_estimate, sort_order, archived_at, repeat)
   on public.tasks to authenticated;
-grant update (parent_id, kind, title, description, xp, difficulty, week_number, time_estimate, sort_order, archived_at)
+grant update (parent_id, kind, title, description, xp, difficulty, week_number, time_estimate, sort_order, archived_at, repeat)
   on public.tasks to authenticated;
 grant insert (task_id, title, url, sort_order), delete on public.task_resources to authenticated;
 grant update (title, url, sort_order) on public.task_resources to authenticated;
@@ -408,6 +452,19 @@ language sql stable security definer set search_path = public as $$
   select (now() at time zone coalesce((select timezone from public.users where id = p_user), 'UTC'))::date;
 $$;
 
+create or replace function public.pt__period_key(p_user uuid, p_repeat text) returns text
+language sql stable security definer set search_path = public as $$
+  select case p_repeat
+    when 'daily' then 'd:' || public.pt__user_today(p_user)::text
+    when 'weekly' then 'w:' || date_trunc('week', public.pt__user_today(p_user))::date::text
+    else 'once' end;
+$$;
+
+create or replace function public.pt__is_admin() returns boolean
+language sql stable security definer set search_path = public as $$
+  select exists (select 1 from public.users where id = auth.uid() and is_admin);
+$$;
+
 create or replace function public.pt__life_xp(p_user uuid) returns int
 language sql stable security definer set search_path = public as $$
   select coalesce(sum(amount), 0)::int from public.xp_events where user_id = p_user;
@@ -423,14 +480,14 @@ begin
   select coalesce(timezone, 'UTC') into tz from public.users where id = p_user;
   tz := coalesce(tz, 'UTC');
   d := (now() at time zone tz)::date;
-  -- Today without activity yet does not break the streak.
+  -- Today without activity yet does not break the streak. Pending ticks count until rejected.
   if not exists (select 1 from public.task_progress
-                 where user_id = p_user and status = 'approved'
+                 where user_id = p_user and status in ('approved', 'pending')
                    and (completed_at at time zone tz)::date = d) then
     d := d - 1;
   end if;
   while exists (select 1 from public.task_progress
-                where user_id = p_user and status = 'approved'
+                where user_id = p_user and status in ('approved', 'pending')
                   and (completed_at at time zone tz)::date = d) loop
     n := n + 1;
     d := d - 1;
@@ -444,7 +501,7 @@ language sql stable security definer set search_path = public as $$
   days as (
     select distinct (tp.completed_at at time zone (select z from tz))::date as d
     from public.task_progress tp
-    where tp.user_id = p_user and tp.status = 'approved'),
+    where tp.user_id = p_user and tp.status in ('approved', 'pending')),
   runs as (select d - (row_number() over (order by d))::int as grp from days)
   select coalesce(max(c), 0)::int from (select count(*) as c from runs group by grp) x;
 $$;
@@ -537,39 +594,14 @@ begin
     'leveled_up', lvl > start_level);
 end $$;
 
-create or replace function public.pt__award(p_progress uuid, p_approver uuid) returns jsonb
-language plpgsql security definer set search_path = public as $$
-declare
-  pr public.task_progress;
-  t public.tasks;
-  tr public.trackers;
-  tz text;
-  res jsonb;
-begin
-  select * into pr from public.task_progress where id = p_progress for update;
-  if not found or pr.status <> 'pending' then
-    raise exception 'This completion is not waiting for review';
-  end if;
-  select * into t from public.tasks where id = pr.task_id;
-  select * into tr from public.trackers where id = pr.tracker_id;
-  select coalesce(timezone, 'UTC') into tz from public.users where id = pr.user_id;
+-- Approval now only confirms XP that was given on completion.
+drop function if exists public.pt__award(uuid, uuid);
 
-  update public.task_progress
-  set status = 'approved', awarded_xp = t.xp, approved_by = p_approver,
-      approved_at = now(), updated_at = now()
-  where id = pr.id;
-
-  if t.xp <> 0 then
-    insert into public.xp_events (user_id, tracker_id, task_id, amount, reason, occurred_on)
-    values (pr.user_id, tr.id, t.id, t.xp, 'task', (pr.completed_at at time zone coalesce(tz, 'UTC'))::date);
-  end if;
-
-  res := jsonb_build_object('status', 'approved', 'changed', true, 'awarded_xp', t.xp);
-  if tr.ruleset = 'godot' then
-    res := res || jsonb_build_object('godot', public.pt__godot_apply(pr.user_id, tr.id, t.xp));
-  end if;
-  return res;
-end $$;
+-- Godot tasks are complete-once whatever their repeat setting.
+create or replace function public.pt__task_period(p_user uuid, p_task public.tasks, p_ruleset text) returns text
+language sql stable security definer set search_path = public as $$
+  select case when p_ruleset = 'godot' then 'once' else public.pt__period_key(p_user, p_task.repeat) end;
+$$;
 
 create or replace function public.pt__progress_access(p_user uuid, p_tracker uuid) returns text
 language plpgsql stable security definer set search_path = public as $$
@@ -594,6 +626,9 @@ declare
   tr public.trackers;
   r text;
   pr public.task_progress;
+  period text;
+  new_status text;
+  res jsonb;
 begin
   select * into t from public.tasks where id = p_task;
   if not found or t.kind <> 'task' or t.archived_at is not null then
@@ -605,34 +640,45 @@ begin
   -- Serialises a user's writes per tracker so double clicks cannot double-award.
   perform pg_advisory_xact_lock(hashtextextended(p_user::text || tr.id::text, 0));
 
-  select * into pr from public.task_progress where user_id = p_user and task_id = p_task;
+  period := public.pt__task_period(p_user, t, tr.ruleset);
+  select * into pr from public.task_progress where user_id = p_user and task_id = p_task and period_key = period;
   if found and pr.status in ('approved', 'pending') then
-    return jsonb_build_object('status', pr.status, 'changed', false);
+    return jsonb_build_object('status', pr.status, 'changed', false, 'period_key', period);
   end if;
 
+  -- XP is given now; on approval trackers it stays pending until reviewed.
+  new_status := case when tr.requires_approval and r = 'member' then 'pending' else 'approved' end;
   if found then
     update public.task_progress
-    set status = 'pending', completed_at = now(), awarded_xp = null,
-        approved_by = null, approved_at = null, updated_at = now()
-    where id = pr.id
-    returning * into pr;
+    set status = new_status, completed_at = now(), awarded_xp = t.xp, review_note = null,
+        approved_by = case when new_status = 'approved' then p_user end,
+        approved_at = case when new_status = 'approved' then now() end,
+        updated_at = now()
+    where id = pr.id;
   else
-    insert into public.task_progress (tracker_id, task_id, user_id, status)
-    values (tr.id, p_task, p_user, 'pending')
-    returning * into pr;
+    insert into public.task_progress (tracker_id, task_id, user_id, status, period_key, awarded_xp, approved_by, approved_at)
+    values (tr.id, p_task, p_user, new_status, period, t.xp,
+            case when new_status = 'approved' then p_user end,
+            case when new_status = 'approved' then now() end);
   end if;
 
-  if tr.requires_approval and r = 'member' then
-    return jsonb_build_object('status', 'pending', 'changed', true);
+  if t.xp <> 0 then
+    insert into public.xp_events (user_id, tracker_id, task_id, amount, reason, occurred_on)
+    values (p_user, tr.id, t.id, t.xp, 'task', public.pt__user_today(p_user));
   end if;
-  return public.pt__award(pr.id, p_user);
+
+  res := jsonb_build_object('status', new_status, 'changed', true, 'awarded_xp', t.xp, 'period_key', period);
+  if tr.ruleset = 'godot' then
+    res := res || jsonb_build_object('godot', public.pt__godot_apply(p_user, tr.id, t.xp));
+  end if;
+  return res;
 end $$;
 
 -- =====================================================================
 -- Browser-callable functions
 -- =====================================================================
 create or replace function public.pt_me() returns jsonb
-language plpgsql stable security definer set search_path = public as $$
+language plpgsql security definer set search_path = public as $$
 declare
   me public.users;
 begin
@@ -640,11 +686,14 @@ begin
     raise exception 'Not signed in' using errcode = '28000';
   end if;
   select * into me from public.users where id = auth.uid();
-  if not found then
+  if not found and public.pt__accept_invite(auth.uid()) then
+    select * into me from public.users where id = auth.uid();
+  end if;
+  if me.id is null then
     return jsonb_build_object('approved', false, 'email', auth.jwt() ->> 'email');
   end if;
   return jsonb_build_object('approved', true, 'id', me.id, 'email', me.email,
-    'display_name', me.display_name, 'timezone', me.timezone);
+    'display_name', me.display_name, 'timezone', me.timezone, 'is_admin', me.is_admin);
 end $$;
 
 create or replace function public.pt_complete_task(p_task uuid) returns jsonb
@@ -672,43 +721,61 @@ begin
   perform public.pt__progress_access(uid, tr.id);
   perform pg_advisory_xact_lock(hashtextextended(uid::text || tr.id::text, 0));
 
-  select * into pr from public.task_progress where user_id = uid and task_id = p_task;
-  if not found then
+  select * into pr from public.task_progress
+  where user_id = uid and task_id = p_task and period_key = public.pt__task_period(uid, t, tr.ruleset);
+  if not found or pr.status = 'rejected' then
     return jsonb_build_object('status', 'none', 'changed', false);
   end if;
-  -- Withdrawing a pending submission is always allowed; awarded XP only where unchecking is enabled.
+  -- Withdrawing a pending tick is always allowed; approved ones only where unchecking is enabled.
   if pr.status = 'approved' and not tr.allow_uncheck then
     raise exception 'Completed tasks in this tracker cannot be unchecked';
   end if;
 
   delete from public.task_progress where id = pr.id;
-  if pr.status = 'approved' and coalesce(pr.awarded_xp, 0) <> 0 then
+  if coalesce(pr.awarded_xp, 0) <> 0 then
     insert into public.xp_events (user_id, tracker_id, task_id, amount, reason, occurred_on)
     values (uid, tr.id, t.id, -pr.awarded_xp, 'refund', public.pt__user_today(uid));
   end if;
-  return jsonb_build_object('status', 'none', 'changed', true,
-    'refunded_xp', case when pr.status = 'approved' then coalesce(pr.awarded_xp, 0) else 0 end);
+  return jsonb_build_object('status', 'none', 'changed', true, 'was', pr.status,
+    'refunded_xp', coalesce(pr.awarded_xp, 0));
 end $$;
 
-create or replace function public.pt_review_completion(p_progress uuid, p_approve boolean) returns jsonb
+-- The old two-argument version had no rejection note.
+drop function if exists public.pt_review_completion(uuid, boolean);
+
+create or replace function public.pt_review_completion(p_progress uuid, p_approve boolean, p_note text default null) returns jsonb
 language plpgsql security definer set search_path = public as $$
 declare
   pr public.task_progress;
+  note text := nullif(left(btrim(coalesce(p_note, '')), 200), '');
 begin
   select * into pr from public.task_progress where id = p_progress;
   if not found or coalesce(public.pt_tracker_role(pr.tracker_id), '') <> 'guardian' then
     raise exception 'You cannot review this completion' using errcode = '42501';
   end if;
-  if pr.status <> 'pending' then
-    raise exception 'This completion was already reviewed';
+  -- Same lock as the member's own ticks, so a withdraw cannot race a review.
+  perform pg_advisory_xact_lock(hashtextextended(pr.user_id::text || pr.tracker_id::text, 0));
+  select * into pr from public.task_progress where id = p_progress;
+  if not found or pr.status <> 'pending' then
+    raise exception 'This completion was already reviewed or withdrawn';
   end if;
+
   if p_approve then
-    return public.pt__award(pr.id, auth.uid());
+    update public.task_progress
+    set status = 'approved', approved_by = auth.uid(), approved_at = now(), review_note = null, updated_at = now()
+    where id = pr.id;
+    return jsonb_build_object('status', 'approved', 'changed', true, 'xp', coalesce(pr.awarded_xp, 0));
   end if;
+
   update public.task_progress
-  set status = 'rejected', approved_by = auth.uid(), approved_at = now(), updated_at = now()
+  set status = 'rejected', awarded_xp = 0, approved_by = auth.uid(), approved_at = now(),
+      review_note = note, updated_at = now()
   where id = pr.id;
-  return jsonb_build_object('status', 'rejected', 'changed', true);
+  if coalesce(pr.awarded_xp, 0) <> 0 then
+    insert into public.xp_events (user_id, tracker_id, task_id, amount, reason, note, occurred_on)
+    values (pr.user_id, pr.tracker_id, pr.task_id, -pr.awarded_xp, 'rejected', note, public.pt__user_today(pr.user_id));
+  end if;
+  return jsonb_build_object('status', 'rejected', 'changed', true, 'removed_xp', coalesce(pr.awarded_xp, 0));
 end $$;
 
 create or replace function public.pt_godot_unlock_skill(p_tracker uuid, p_skill text) returns jsonb
@@ -812,19 +879,24 @@ begin
 
   return jsonb_build_object(
     'approved', true,
-    'user', jsonb_build_object('id', uid, 'email', me.email, 'display_name', me.display_name, 'timezone', me.timezone),
+    'user', jsonb_build_object('id', uid, 'email', me.email, 'display_name', me.display_name, 'timezone', me.timezone, 'is_admin', me.is_admin),
     'life_xp', public.pt__life_xp(uid),
+    'pending_xp', (select coalesce(sum(awarded_xp), 0) from public.task_progress where user_id = uid and status = 'pending'),
+    'pending_count', (select count(*) from public.task_progress where user_id = uid and status = 'pending'),
+    'today_pending_xp', (select coalesce(sum(awarded_xp), 0) from public.task_progress
+                         where user_id = uid and status = 'pending'
+                           and (completed_at at time zone me.timezone)::date = today),
     'streak', public.pt__streak(uid),
     'best_streak', public.pt__best_streak(uid),
-    'tasks_done', (select count(*) from public.task_progress where user_id = uid and status = 'approved'),
-    'today_xp', (select coalesce(sum(amount), 0) from public.xp_events
-                 where user_id = uid and occurred_on = today and reason in ('task', 'achievement')),
+    'tasks_done', (select count(*) from public.task_progress where user_id = uid and status in ('approved', 'pending')),
+    'today_xp', (select greatest(coalesce(sum(amount), 0), 0) from public.xp_events
+                 where user_id = uid and occurred_on = today and reason in ('task', 'achievement', 'refund', 'rejected')),
     'week', (
       select jsonb_agg(jsonb_build_object(
                'date', d::date, 'today', d::date = today, 'future', d::date > today,
                'done', exists (
                  select 1 from public.task_progress tp
-                 where tp.user_id = uid and tp.status = 'approved'
+                 where tp.user_id = uid and tp.status in ('approved', 'pending')
                    and (tp.completed_at at time zone me.timezone)::date = d::date)) order by d)
       from generate_series(week_start::timestamp, (week_start + 6)::timestamp, interval '1 day') d),
     'badges', (
@@ -839,21 +911,26 @@ begin
     'is_creator', exists (select 1 from public.trackers where created_by = uid),
     'trackers', (
       select coalesce(jsonb_agg(to_jsonb(x) order by x.sort_order, x.name), '[]'::jsonb) from (
-        select t.id, t.slug, t.name, t.description, t.page, t.icon, t.sort_order,
+        select t.id, t.slug, t.name, t.description, t.page, t.icon, t.sort_order, t.layout, t.theme,
                a.role, coalesce(a.can_edit, true) as can_edit, (t.created_by = uid) as is_creator, t.requires_approval,
                (select count(*) from public.tasks k where k.tracker_id = t.id and k.kind = 'task' and k.archived_at is null) as total_tasks,
-               (select count(*) from public.task_progress tp join public.tasks k on k.id = tp.task_id
-                 where tp.tracker_id = t.id and tp.user_id = uid and tp.status = 'approved' and k.archived_at is null) as done_tasks,
+               (select count(*) from public.tasks k
+                 where k.tracker_id = t.id and k.kind = 'task' and k.archived_at is null
+                   and exists (select 1 from public.task_progress tp
+                               where tp.task_id = k.id and tp.user_id = uid and tp.status in ('approved', 'pending')
+                                 and tp.period_key = public.pt__task_period(uid, k, t.ruleset))) as done_tasks,
                (select count(*) from public.task_progress tp where tp.tracker_id = t.id and tp.user_id = uid and tp.status = 'pending') as my_pending,
+               (select coalesce(sum(tp.awarded_xp), 0) from public.task_progress tp where tp.tracker_id = t.id and tp.user_id = uid and tp.status = 'pending') as pending_xp,
                (select coalesce(sum(e.amount), 0) from public.xp_events e where e.tracker_id = t.id and e.user_id = uid) as xp,
                (select count(*) from public.task_progress tp where tp.tracker_id = t.id and tp.user_id <> uid and tp.status = 'pending' and a.role = 'guardian') as to_review,
-               (select jsonb_build_object('id', k.id, 'title', k.title, 'xp', k.xp)
+               (select jsonb_build_object('id', k.id, 'title', k.title, 'xp', k.xp, 'repeat', k.repeat)
                   from public.tasks k
                   left join public.tasks pk on pk.id = k.parent_id
                   where k.tracker_id = t.id and k.kind = 'task' and k.archived_at is null
                     and (pk.id is null or pk.archived_at is null)
                     and not exists (select 1 from public.task_progress tp
-                                    where tp.task_id = k.id and tp.user_id = uid and tp.status in ('approved', 'pending'))
+                                    where tp.task_id = k.id and tp.user_id = uid and tp.status in ('approved', 'pending')
+                                      and tp.period_key = public.pt__task_period(uid, k, t.ruleset))
                   order by coalesce(k.week_number, 0), coalesce(pk.sort_order, 0), k.sort_order, k.created_at
                   limit 1) as next_task
         from public.trackers t
@@ -871,7 +948,7 @@ begin
       ) x),
     'approvals', (
       select coalesce(jsonb_agg(to_jsonb(x) order by x.completed_at), '[]'::jsonb) from (
-        select tp.id, tp.completed_at, k.title as task_title, k.xp, t.name as tracker_name,
+        select tp.id, tp.completed_at, k.title as task_title, coalesce(tp.awarded_xp, k.xp) as xp, t.name as tracker_name,
                coalesce(u.display_name, u.email) as user_name
         from public.task_progress tp
         join public.tracker_access a on a.tracker_id = tp.tracker_id and a.user_id = uid and a.role = 'guardian'
@@ -881,6 +958,24 @@ begin
         where tp.status = 'pending' and tp.user_id <> uid
         order by tp.completed_at
         limit 50
+      ) x),
+    -- Lets the home page tell members when a pending tick was approved or sent back.
+    'my_pending', (
+      select coalesce(jsonb_agg(to_jsonb(x)), '[]'::jsonb) from (
+        select tp.id, k.title, tp.awarded_xp as xp
+        from public.task_progress tp join public.tasks k on k.id = tp.task_id
+        where tp.user_id = uid and tp.status = 'pending'
+        order by tp.completed_at desc
+        limit 100
+      ) x),
+    'reviews', (
+      select coalesce(jsonb_agg(to_jsonb(x)), '[]'::jsonb) from (
+        select tp.id, tp.status, tp.review_note as note, k.title
+        from public.task_progress tp join public.tasks k on k.id = tp.task_id
+        where tp.user_id = uid and tp.approved_by is not null and tp.approved_by <> uid
+          and tp.approved_at > now() - interval '30 days'
+        order by tp.approved_at desc
+        limit 100
       ) x),
     'family', (
       select coalesce(jsonb_agg(to_jsonb(x) order by x.name), '[]'::jsonb) from (
@@ -912,6 +1007,8 @@ begin
   insert into public.users (id, email, display_name, timezone)
   values (uid, lower(p_email), p_display_name, coalesce(p_timezone, 'UTC'))
   on conflict (id) do update set display_name = coalesce(excluded.display_name, public.users.display_name);
+  -- Applies the tracker access from an open invite for the same email, if any.
+  perform public.pt__accept_invite(uid);
   return uid;
 end $$;
 
@@ -976,16 +1073,47 @@ begin
   on conflict (tracker_id, user_id) do update set role = excluded.role, can_edit = excluded.can_edit;
 end $$;
 
+-- Replaced by the version below with a repeat argument.
+drop function if exists public.pt__seed_node(uuid, text, text, text, text, int, text, int, text, int, text);
+
 create or replace function public.pt__seed_node(
   p_tracker uuid, p_seed text, p_parent_seed text, p_kind text, p_title text,
-  p_xp int, p_difficulty text, p_week int, p_time text, p_sort int, p_legacy text)
+  p_xp int, p_difficulty text, p_week int, p_time text, p_sort int, p_legacy text,
+  p_repeat text default 'none')
 returns void language plpgsql security definer set search_path = public as $$
 begin
-  insert into public.tasks (tracker_id, parent_id, kind, title, xp, difficulty, week_number, time_estimate, sort_order, seed_key, legacy_key)
+  insert into public.tasks (tracker_id, parent_id, kind, title, xp, difficulty, week_number, time_estimate, sort_order, seed_key, legacy_key, repeat)
   values (p_tracker,
           (select id from public.tasks where tracker_id = p_tracker and seed_key = p_parent_seed),
-          p_kind, p_title, coalesce(p_xp, 0), p_difficulty, p_week, p_time, p_sort, p_seed, p_legacy)
+          p_kind, p_title, coalesce(p_xp, 0), p_difficulty, p_week, p_time, p_sort, p_seed, p_legacy, coalesce(p_repeat, 'none'))
   on conflict (tracker_id, seed_key) do nothing;
+end $$;
+
+-- Creates a tracker once (by slug) for seeding; later runs leave it alone.
+create or replace function public.pt__seed_tracker(
+  p_slug text, p_name text, p_description text, p_owner_email text,
+  p_layout text, p_theme text, p_icon text, p_requires_approval boolean default false)
+returns uuid language plpgsql security definer set search_path = public as $$
+declare
+  tid uuid;
+  uid uuid;
+begin
+  select id into tid from public.trackers where slug = p_slug;
+  if tid is not null then
+    return tid;
+  end if;
+  select id into uid from public.users where lower(email) = lower(p_owner_email);
+  if uid is null then
+    raise exception 'Approve % first with pt_admin_approve_user', p_owner_email;
+  end if;
+  insert into public.trackers (slug, name, description, created_by, icon, layout, theme, requires_approval, sort_order)
+  values (p_slug, p_name, p_description, uid, p_icon, p_layout, p_theme, p_requires_approval,
+          (select coalesce(max(sort_order), 0) + 10 from public.trackers where created_by = uid))
+  returning id into tid;
+  insert into public.tracker_access (tracker_id, user_id, role, can_edit)
+  values (tid, uid, case when p_requires_approval then 'guardian' else 'owner' end, true)
+  on conflict (tracker_id, user_id) do nothing;
+  return tid;
 end $$;
 
 create or replace function public.pt__seed_resource(p_tracker uuid, p_node_seed text, p_title text, p_url text, p_sort int)
@@ -1031,7 +1159,7 @@ begin
       end if;
       insert into public.task_progress (tracker_id, task_id, user_id, status, completed_at, approved_by, approved_at)
       values (tid, v_task, p.user_id, 'approved', coalesce(p.updated_at, now()), p.user_id, now())
-      on conflict (user_id, task_id) do nothing;
+      on conflict (user_id, task_id, period_key) do nothing;
     end loop;
     -- Rows already earning XP in the new ledger would be double counted.
     if coalesce(p.total_xp, 0) <> 0 and not exists (
@@ -1052,6 +1180,42 @@ end $$;
 -- Access management (tracker owner, from the Manage page)
 -- Levels: none, read (view only), write (complete tasks), review (approve members)
 -- =====================================================================
+-- Admins see everyone; other owners only see people they already share a tracker with.
+create or replace function public.pt__can_see_user(p_user uuid) returns boolean
+language sql stable security definer set search_path = public as $$
+  select public.pt__is_admin() or p_user = auth.uid() or exists (
+    select 1 from public.tracker_access mine
+    join public.tracker_access theirs on theirs.tracker_id = mine.tracker_id
+    where mine.user_id = auth.uid() and theirs.user_id = p_user);
+$$;
+
+create or replace function public.pt__apply_access(p_tracker uuid, p_user uuid, p_level text) returns void
+language plpgsql security definer set search_path = public as $$
+declare
+  tr public.trackers;
+begin
+  select * into tr from public.trackers where id = p_tracker;
+  if not found then
+    raise exception 'Tracker not found';
+  end if;
+  if p_user = tr.created_by then
+    raise exception 'The owner''s access cannot be changed';
+  end if;
+  if p_level not in ('none', 'read', 'write', 'review') then
+    raise exception 'Unknown access level';
+  end if;
+  if p_level = 'review' and not tr.requires_approval then
+    raise exception 'Reviewers are only used on trackers that need approval';
+  end if;
+  if p_level = 'none' then
+    delete from public.tracker_access where tracker_id = p_tracker and user_id = p_user;
+  else
+    insert into public.tracker_access (tracker_id, user_id, role, can_edit)
+    values (p_tracker, p_user, case when p_level = 'review' then 'guardian' else 'member' end, p_level <> 'read')
+    on conflict (tracker_id, user_id) do update set role = excluded.role, can_edit = excluded.can_edit;
+  end if;
+end $$;
+
 create or replace function public.pt_manage_access(p_tracker uuid) returns jsonb
 language plpgsql stable security definer set search_path = public as $$
 declare
@@ -1074,7 +1238,8 @@ begin
           else 'read' end)
       order by (u.id = tr.created_by) desc, coalesce(u.display_name, u.email)), '[]'::jsonb)
     from public.users u
-    left join public.tracker_access a on a.tracker_id = p_tracker and a.user_id = u.id);
+    left join public.tracker_access a on a.tracker_id = p_tracker and a.user_id = u.id
+    where u.id = tr.created_by or a.id is not null or public.pt__can_see_user(u.id));
 end $$;
 
 create or replace function public.pt_manage_set_access(p_tracker uuid, p_user uuid, p_level text) returns jsonb
@@ -1092,21 +1257,283 @@ begin
   if not exists (select 1 from public.users where id = p_user) then
     raise exception 'That person is not approved yet';
   end if;
-  if p_level not in ('none', 'read', 'write', 'review') then
-    raise exception 'Unknown access level';
+  if not public.pt__can_see_user(p_user)
+     and not exists (select 1 from public.tracker_access where tracker_id = p_tracker and user_id = p_user) then
+    raise exception 'That person is not available to you' using errcode = '42501';
   end if;
-  if p_level = 'review' and not tr.requires_approval then
-    raise exception 'Reviewers are only used on trackers that need approval';
+  perform public.pt__apply_access(p_tracker, p_user, p_level);
+  return jsonb_build_object('level', p_level);
+end $$;
+
+-- =====================================================================
+-- Creating trackers from the Manage page (owners and the site admin)
+-- =====================================================================
+create or replace function public.pt_create_tracker(
+  p_name text, p_description text, p_icon text, p_layout text, p_theme text,
+  p_requires_approval boolean default false, p_copy_from uuid default null)
+returns jsonb language plpgsql security definer set search_path = public as $$
+declare
+  uid uuid := auth.uid();
+  nm text := btrim(coalesce(p_name, ''));
+  base text;
+  new_slug text;
+  tid uuid;
+  r record;
+  new_id uuid;
+  id_map jsonb := '{}'::jsonb;
+  copied int := 0;
+begin
+  if not public.pt_is_approved() then
+    raise exception 'Your account is not approved' using errcode = '42501';
+  end if;
+  -- Keeps members (for example children) from creating trackers.
+  if not (public.pt__is_admin() or exists (select 1 from public.trackers where created_by = uid)) then
+    raise exception 'Only tracker owners can create trackers' using errcode = '42501';
+  end if;
+  if char_length(nm) not between 1 and 80 then
+    raise exception 'Name must be 1 to 80 characters';
+  end if;
+  if p_copy_from is not null and not (public.pt_is_creator(p_copy_from) or public.pt_tracker_role(p_copy_from) is not null) then
+    raise exception 'You cannot copy that tracker' using errcode = '42501';
   end if;
 
-  if p_level = 'none' then
-    delete from public.tracker_access where tracker_id = p_tracker and user_id = p_user;
-  else
-    insert into public.tracker_access (tracker_id, user_id, role, can_edit)
-    values (p_tracker, p_user, case when p_level = 'review' then 'guardian' else 'member' end, p_level <> 'read')
-    on conflict (tracker_id, user_id) do update set role = excluded.role, can_edit = excluded.can_edit;
+  base := btrim(left(regexp_replace(lower(nm), '[^a-z0-9]+', '-', 'g'), 30), '-');
+  new_slug := coalesce(nullif(base, ''), 'tracker') || '-' || substr(md5(gen_random_uuid()::text), 1, 6);
+
+  insert into public.trackers (slug, name, description, created_by, icon, layout, theme, requires_approval, sort_order)
+  values (new_slug, nm, nullif(left(btrim(coalesce(p_description, '')), 200), ''), uid,
+          coalesce(nullif(p_icon, ''), 'target'), coalesce(nullif(p_layout, ''), 'checklist'),
+          coalesce(nullif(p_theme, ''), 'minimal'), coalesce(p_requires_approval, false),
+          (select coalesce(max(sort_order), 0) + 10 from public.trackers where created_by = uid))
+  returning id into tid;
+  insert into public.tracker_access (tracker_id, user_id, role, can_edit)
+  values (tid, uid, case when coalesce(p_requires_approval, false) then 'guardian' else 'owner' end, true);
+
+  if p_copy_from is not null then
+    -- Parents before children so each copy can point at its new parent.
+    for r in
+      with recursive tree as (
+        select t.id, t.parent_id, 0 as depth from public.tasks t
+        where t.tracker_id = p_copy_from and t.parent_id is null and t.archived_at is null
+        union all
+        select c.id, c.parent_id, tree.depth + 1 from public.tasks c
+        join tree on c.parent_id = tree.id
+        where c.archived_at is null and tree.depth < 20)
+      select s.*, tree.depth from tree join public.tasks s on s.id = tree.id
+      order by tree.depth, s.sort_order, s.created_at
+    loop
+      insert into public.tasks (tracker_id, parent_id, kind, title, description, xp, difficulty, week_number, time_estimate, sort_order, repeat)
+      values (tid, (id_map ->> r.parent_id::text)::uuid, r.kind, r.title, r.description, r.xp, r.difficulty,
+              r.week_number, r.time_estimate, r.sort_order, r.repeat)
+      returning id into new_id;
+      id_map := id_map || jsonb_build_object(r.id::text, new_id);
+      insert into public.task_resources (task_id, title, url, sort_order)
+      select new_id, title, url, sort_order from public.task_resources where task_id = r.id;
+      if r.kind = 'task' then
+        copied := copied + 1;
+      end if;
+    end loop;
   end if;
-  return jsonb_build_object('level', p_level);
+
+  return jsonb_build_object('id', tid, 'slug', new_slug, 'tasks', copied);
+end $$;
+
+-- =====================================================================
+-- People (site admin only, from the Manage page)
+-- =====================================================================
+create or replace function public.pt__require_admin() returns void
+language plpgsql stable security definer set search_path = public as $$
+begin
+  if not public.pt__is_admin() then
+    raise exception 'Only the site admin can manage people' using errcode = '42501';
+  end if;
+end $$;
+
+-- Checks grants shaped like [{"tracker_id": "...", "level": "read|write|review"}].
+create or replace function public.pt__clean_grants(p_grants jsonb) returns jsonb
+language plpgsql stable security definer set search_path = public as $$
+declare
+  g record;
+  tr public.trackers;
+  res jsonb := '[]'::jsonb;
+begin
+  if p_grants is null then
+    return res;
+  end if;
+  if jsonb_typeof(p_grants) <> 'array' or jsonb_array_length(p_grants) > 50 then
+    raise exception 'Tracker access list is not valid';
+  end if;
+  for g in select * from jsonb_to_recordset(p_grants) as x(tracker_id uuid, level text) loop
+    continue when g.level = 'none';
+    select * into tr from public.trackers where id = g.tracker_id;
+    if not found then
+      raise exception 'Tracker not found';
+    end if;
+    if g.level not in ('read', 'write', 'review') then
+      raise exception 'Unknown access level';
+    end if;
+    if g.level = 'review' and not tr.requires_approval then
+      raise exception 'Reviewers are only used on trackers that need approval (%)', tr.name;
+    end if;
+    res := res || jsonb_build_array(jsonb_build_object('tracker_id', g.tracker_id, 'level', g.level));
+  end loop;
+  return res;
+end $$;
+
+-- Called by pt_me on first sign-in. Only verified emails can claim an invite.
+create or replace function public.pt__accept_invite(p_user uuid) returns boolean
+language plpgsql security definer set search_path = public as $$
+declare
+  au record;
+  inv public.invites;
+  g record;
+begin
+  select email, email_confirmed_at into au from auth.users where id = p_user;
+  if au.email is null or au.email_confirmed_at is null then
+    return false;
+  end if;
+  select * into inv from public.invites where email = lower(au.email) and accepted_at is null for update;
+  if not found then
+    return false;
+  end if;
+  insert into public.users (id, email, display_name, timezone)
+  values (p_user, lower(au.email), inv.display_name, inv.timezone)
+  on conflict (id) do nothing;
+  for g in select * from jsonb_to_recordset(inv.grants) as x(tracker_id uuid, level text) loop
+    begin
+      perform public.pt__apply_access(g.tracker_id, p_user, g.level);
+    exception when others then
+      -- A tracker deleted or changed since the invite is skipped, not fatal.
+      null;
+    end;
+  end loop;
+  update public.invites set accepted_at = now(), accepted_by = p_user where id = inv.id;
+  return true;
+end $$;
+
+create or replace function public.pt_people_list() returns jsonb
+language plpgsql stable security definer set search_path = public as $$
+begin
+  perform public.pt__require_admin();
+  return jsonb_build_object(
+    'users', (
+      select coalesce(jsonb_agg(to_jsonb(x) order by x.name), '[]'::jsonb) from (
+        select u.id, u.email, coalesce(u.display_name, u.email) as name, u.timezone, u.is_admin,
+               (select coalesce(jsonb_agg(jsonb_build_object('name', t.name,
+                         'level', case when a.role = 'owner' then 'owner' when a.role = 'guardian' then 'review'
+                                       when a.can_edit then 'write' else 'read' end) order by t.name), '[]'::jsonb)
+                  from public.tracker_access a join public.trackers t on t.id = a.tracker_id
+                  where a.user_id = u.id) as trackers,
+               exists (select 1 from public.trackers t where t.created_by = u.id) as owns_trackers
+        from public.users u) x),
+    'invites', (
+      select coalesce(jsonb_agg(to_jsonb(x) order by x.created_at desc), '[]'::jsonb) from (
+        select i.id, i.email, i.display_name, i.timezone, i.created_at,
+               (select coalesce(jsonb_agg(jsonb_build_object('name', t.name, 'level', g.level) order by t.name), '[]'::jsonb)
+                  from jsonb_to_recordset(i.grants) as g(tracker_id uuid, level text)
+                  join public.trackers t on t.id = g.tracker_id) as trackers
+        from public.invites i where i.accepted_at is null) x),
+    'waiting', (
+      select coalesce(jsonb_agg(to_jsonb(x) order by x.last_sign_in_at desc nulls last), '[]'::jsonb) from (
+        select au.id, au.email, au.last_sign_in_at
+        from auth.users au
+        where au.email is not null and au.email_confirmed_at is not null
+          and not exists (select 1 from public.users u where u.id = au.id)
+        order by au.last_sign_in_at desc nulls last
+        limit 50) x),
+    'trackers', (
+      select coalesce(jsonb_agg(jsonb_build_object('id', t.id, 'name', t.name, 'requires_approval', t.requires_approval)
+               order by t.sort_order, t.name), '[]'::jsonb)
+      from public.trackers t));
+end $$;
+
+-- Adds a person by email. Someone who already signed in is approved now;
+-- anyone else gets an invite that is claimed on their first Google sign-in.
+create or replace function public.pt_invite_user(p_email text, p_display_name text, p_timezone text, p_grants jsonb)
+returns jsonb language plpgsql security definer set search_path = public as $$
+declare
+  em text := lower(btrim(coalesce(p_email, '')));
+  nm text := nullif(left(btrim(coalesce(p_display_name, '')), 60), '');
+  tz text := coalesce(nullif(btrim(p_timezone), ''), 'UTC');
+  grants jsonb;
+  existing uuid;
+  g record;
+begin
+  perform public.pt__require_admin();
+  if em !~ '^[^@\s]+@[^@\s]+\.[^@\s]+$' or char_length(em) > 254 then
+    raise exception 'Enter a valid email address';
+  end if;
+  begin
+    perform now() at time zone tz;
+  exception when others then
+    raise exception 'Unknown time zone %', tz;
+  end;
+  grants := public.pt__clean_grants(p_grants);
+
+  if exists (select 1 from public.users where email = em) then
+    raise exception '% is already added. Change their access on each tracker''s Access tab.', em;
+  end if;
+
+  select id into existing from auth.users where lower(email) = em and email_confirmed_at is not null;
+  if existing is not null then
+    insert into public.users (id, email, display_name, timezone) values (existing, em, nm, tz)
+    on conflict (id) do nothing;
+    for g in select * from jsonb_to_recordset(grants) as x(tracker_id uuid, level text) loop
+      perform public.pt__apply_access(g.tracker_id, existing, g.level);
+    end loop;
+    delete from public.invites where email = em and accepted_at is null;
+    return jsonb_build_object('status', 'added', 'email', em);
+  end if;
+
+  insert into public.invites (email, display_name, timezone, grants, invited_by)
+  values (em, nm, tz, grants, auth.uid())
+  on conflict (email) where accepted_at is null
+  do update set display_name = excluded.display_name, timezone = excluded.timezone,
+                grants = excluded.grants, invited_by = excluded.invited_by, created_at = now();
+  return jsonb_build_object('status', 'invited', 'email', em);
+end $$;
+
+create or replace function public.pt_revoke_invite(p_invite uuid) returns jsonb
+language plpgsql security definer set search_path = public as $$
+begin
+  perform public.pt__require_admin();
+  delete from public.invites where id = p_invite and accepted_at is null;
+  return jsonb_build_object('removed', found);
+end $$;
+
+create or replace function public.pt_approve_signup(p_user uuid, p_display_name text, p_timezone text)
+returns jsonb language plpgsql security definer set search_path = public as $$
+declare
+  em text;
+  tz text := coalesce(nullif(btrim(p_timezone), ''), 'UTC');
+begin
+  perform public.pt__require_admin();
+  select lower(email) into em from auth.users where id = p_user and email_confirmed_at is not null;
+  if em is null then
+    raise exception 'That account was not found';
+  end if;
+  insert into public.users (id, email, display_name, timezone)
+  values (p_user, em, nullif(left(btrim(coalesce(p_display_name, '')), 60), ''), tz)
+  on conflict (id) do nothing;
+  perform public.pt__accept_invite(p_user);
+  return jsonb_build_object('status', 'added', 'email', em);
+end $$;
+
+-- Removes approval and tracker access. XP and completion history are kept,
+-- so approving the same account again restores their level.
+create or replace function public.pt_remove_user(p_user uuid) returns jsonb
+language plpgsql security definer set search_path = public as $$
+begin
+  perform public.pt__require_admin();
+  if p_user = auth.uid() then
+    raise exception 'You cannot remove yourself';
+  end if;
+  if exists (select 1 from public.trackers where created_by = p_user) then
+    raise exception 'This person owns trackers. Delete those trackers first.';
+  end if;
+  delete from public.tracker_access where user_id = p_user;
+  delete from public.users where id = p_user;
+  return jsonb_build_object('removed', found);
 end $$;
 
 -- ---------------------------------------------------------------------
@@ -1131,12 +1558,18 @@ grant execute on function public.pt_me() to authenticated;
 grant execute on function public.pt_dashboard() to authenticated;
 grant execute on function public.pt_complete_task(uuid) to authenticated;
 grant execute on function public.pt_uncomplete_task(uuid) to authenticated;
-grant execute on function public.pt_review_completion(uuid, boolean) to authenticated;
+grant execute on function public.pt_review_completion(uuid, boolean, text) to authenticated;
 grant execute on function public.pt_godot_unlock_skill(uuid, text) to authenticated;
 grant execute on function public.pt_reset_tracker(uuid) to authenticated;
 grant execute on function public.pt_import_completions(uuid, text[]) to authenticated;
 grant execute on function public.pt_manage_access(uuid) to authenticated;
 grant execute on function public.pt_manage_set_access(uuid, uuid, text) to authenticated;
+grant execute on function public.pt_create_tracker(text, text, text, text, text, boolean, uuid) to authenticated;
+grant execute on function public.pt_people_list() to authenticated;
+grant execute on function public.pt_invite_user(text, text, text, jsonb) to authenticated;
+grant execute on function public.pt_revoke_invite(uuid) to authenticated;
+grant execute on function public.pt_approve_signup(uuid, text, text) to authenticated;
+grant execute on function public.pt_remove_user(uuid) to authenticated;
 
 commit;
 

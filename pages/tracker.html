@@ -1,222 +1,350 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-theme="minimal">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Tracker</title>
+  <meta name="theme-color" content="#f5f1e8">
   <link rel="stylesheet" href="../assets/css/app.css">
+  <link rel="stylesheet" href="../assets/css/themes.css">
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
 
-    :root {
-      --pt-bg: #f4f6fb;
-      --pt-surface: #ffffff;
-      --pt-fg: #1f2937;
-      --pt-muted: #6b7280;
-      --pt-border: #e5e7eb;
-      --pt-accent: #6d5dfc;
-      --pt-on-accent: #ffffff;
-      --pt-hover: #f3f4f6;
-      --pt-danger: #b91c1c;
-    }
-
     body {
-      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;
-      background: var(--pt-bg);
+      font-family: var(--pt-font-body);
+      background: var(--pt-bg-image), var(--pt-bg);
+      background-color: var(--pt-bg);
+      background-attachment: fixed;
       color: var(--pt-fg);
       line-height: 1.5;
-      padding: 24px 20px 48px;
+      padding: 16px 16px 56px;
       min-height: 100vh;
     }
 
-    .container { max-width: 820px; margin: 0 auto; }
-
-    .head { display: flex; gap: 16px; align-items: center; margin-bottom: 20px; }
-    .head-icon { width: 56px; height: 56px; border-radius: 14px; display: flex; align-items: center; justify-content: center; background: rgba(109, 93, 252, 0.12); color: var(--pt-accent); flex-shrink: 0; }
-    .head-icon .pt-icon { width: 28px; height: 28px; }
-    h1 { font-size: 26px; line-height: 1.2; letter-spacing: 0; overflow-wrap: anywhere; }
-    .desc { color: var(--pt-muted); overflow-wrap: anywhere; }
-
-    .summary { background: var(--pt-surface); border: 1px solid var(--pt-border); border-radius: 12px; padding: 16px 20px; margin-bottom: 20px; }
-    .summary-row { display: flex; justify-content: space-between; flex-wrap: wrap; gap: 4px 16px; font-size: 14px; color: var(--pt-muted); }
-    .summary-row strong { color: var(--pt-fg); }
-    .bar { height: 10px; background: var(--pt-border); border-radius: 5px; overflow: hidden; margin: 10px 0 0; }
-    .bar > div { height: 100%; background: var(--pt-accent); border-radius: 5px; transition: width 0.4s ease; }
-
-    .note { display: flex; gap: 8px; align-items: center; padding: 12px 16px; border-radius: 10px; background: rgba(109, 93, 252, 0.08); color: var(--pt-fg); font-size: 14px; margin-bottom: 20px; }
-    .note .pt-icon { color: var(--pt-accent); }
-
-    .group { background: var(--pt-surface); border: 1px solid var(--pt-border); border-radius: 12px; margin-bottom: 16px; overflow: hidden; }
-    .group > summary { list-style: none; cursor: pointer; display: flex; align-items: center; gap: 12px; padding: 14px 16px; min-height: 52px; }
-    .group > summary::-webkit-details-marker { display: none; }
-    .group > summary .chev { transition: transform 0.2s ease; color: var(--pt-muted); }
-    .group:not([open]) > summary .chev { transform: rotate(-90deg); }
-    .group-title { flex: 1; font-weight: 700; overflow-wrap: anywhere; }
-    .group-count { font-size: 13px; color: var(--pt-muted); white-space: nowrap; }
-    .group-body { padding: 0 16px 12px; }
-    .group .group { border-radius: 8px; margin: 8px 0; }
-    .group-desc { font-size: 13px; color: var(--pt-muted); margin-bottom: 8px; }
-    .divider { display: flex; align-items: center; gap: 8px; color: var(--pt-muted); font-size: 13px; font-weight: 600; margin: 8px 0 16px; }
-
-    .tasks { list-style: none; }
-    .task { display: flex; align-items: flex-start; gap: 12px; padding: 8px 0; border-top: 1px solid var(--pt-border); }
-    .task:first-child { border-top: none; }
-    .task input { width: 22px; height: 22px; margin-top: 11px; accent-color: var(--pt-accent); flex-shrink: 0; cursor: pointer; }
-    .task input:disabled { cursor: not-allowed; }
-    .task label { flex: 1; min-width: 0; display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; min-height: 44px; padding: 8px 0; cursor: pointer; }
-    .task-title { flex: 1 1 200px; min-width: 0; overflow-wrap: anywhere; }
-    .task-desc { flex-basis: 100%; font-size: 13px; color: var(--pt-muted); }
-    .task.done .task-title { text-decoration: line-through; color: var(--pt-muted); }
-    .xp { font-size: 12px; font-weight: 800; color: var(--pt-accent); white-space: nowrap; }
-    .rejected { font-size: 12px; font-weight: 700; color: var(--pt-danger); }
-    .difficulty { font-size: 11px; font-weight: 700; text-transform: uppercase; padding: 2px 8px; border-radius: 4px; background: var(--pt-hover); color: var(--pt-muted); }
-
-    .resources { display: flex; flex-wrap: wrap; gap: 8px; margin: 8px 0; }
-    .resources a { display: inline-flex; align-items: center; gap: 6px; min-height: 40px; padding: 6px 12px; border: 1px solid var(--pt-border); border-radius: 8px; color: var(--pt-accent); text-decoration: none; font-size: 13px; font-weight: 600; }
-    .resources a .pt-icon { width: 14px; height: 14px; }
-
+    .container { max-width: 860px; margin: 0 auto; }
+    h1, h2, h3, .group-title, .week-title, .chapter-title { font-family: var(--pt-font-head); letter-spacing: 0; }
+    .card { background: var(--pt-surface); border: 1px solid var(--pt-border); border-radius: var(--pt-radius); box-shadow: var(--pt-shadow); }
     .empty { color: var(--pt-muted); text-align: center; padding: 32px 0; }
 
-    @media (max-width: 480px) {
-      body { padding: 16px 12px 40px; }
+    /* Header */
+    .hero { display: flex; align-items: center; gap: 16px; margin-bottom: 16px; }
+    .hero-icon { width: 60px; height: 60px; flex-shrink: 0; border-radius: calc(var(--pt-radius) + 4px); display: flex; align-items: center; justify-content: center; background: var(--pt-fill); color: var(--pt-on-accent); box-shadow: var(--pt-glow); }
+    .hero-icon .pt-icon { width: 30px; height: 30px; }
+    .hero-text { flex: 1; min-width: 0; }
+    h1 { font-size: 28px; line-height: 1.15; overflow-wrap: anywhere; }
+    .desc { color: var(--pt-muted); overflow-wrap: anywhere; }
+    .note { display: flex; gap: 10px; align-items: flex-start; padding: 12px 14px; margin-bottom: 14px; font-size: 14px; }
+    .note .pt-icon { color: var(--pt-accent); margin-top: 2px; }
+
+    /* Chips and bars */
+    .chip { display: inline-flex; align-items: center; gap: 4px; padding: 2px 8px; border-radius: 999px; font-size: 12px; font-weight: 700; background: var(--pt-hover); color: var(--pt-muted); white-space: nowrap; }
+    .chip .pt-icon { width: 13px; height: 13px; }
+    .chip--xp { color: var(--pt-gold); background: color-mix(in srgb, var(--pt-gold) 14%, transparent); }
+    .chip--pending { color: var(--pt-pending); background: rgba(234, 179, 8, 0.16); }
+    .chip--repeat { color: var(--pt-accent); background: color-mix(in srgb, var(--pt-accent) 12%, transparent); }
+    .chip--diff { text-transform: capitalize; }
+    .chip--hard { color: var(--pt-danger); }
+    .pending-text { display: inline-flex; align-items: center; gap: 4px; color: var(--pt-pending); font-weight: 700; }
+    .pending-text .pt-icon { width: 14px; height: 14px; }
+    .bar { display: flex; height: 10px; border-radius: 999px; background: var(--pt-track); overflow: hidden; }
+    .bar > span { height: 100%; transition: width 0.5s ease; }
+    .bar > .fill { background: var(--pt-fill); }
+
+    /* Summary (checklist and timeline) */
+    .summary { padding: 16px 18px; margin-bottom: 18px; }
+    .summary-top { display: flex; align-items: center; gap: 16px; margin-bottom: 12px; }
+    .pct-ring { position: relative; width: 64px; height: 64px; flex-shrink: 0; border-radius: 50%; background: conic-gradient(var(--pt-accent) calc(var(--pct) * 1%), var(--pt-track) 0); display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 15px; }
+    .pct-ring::before { content: ''; position: absolute; inset: 6px; border-radius: 50%; background: var(--pt-surface); }
+    .pct-ring span { position: relative; }
+    .summary-text { flex: 1; min-width: 0; }
+    .summary-text > strong { font-size: 18px; }
+    .meta-line { display: flex; flex-wrap: wrap; gap: 4px 12px; margin-top: 2px; font-size: 13px; color: var(--pt-muted); }
+    .meta-line strong { color: var(--pt-fg); }
+    .hint { margin-top: 10px; font-size: 12px; color: var(--pt-muted); display: flex; align-items: center; gap: 6px; }
+    .hint .pt-icon { width: 14px; height: 14px; }
+
+    /* Task rows */
+    .tasks { list-style: none; }
+    .task { display: flex; align-items: flex-start; gap: 12px; padding: 4px 0; border-top: 1px solid var(--pt-border); }
+    .task:first-child { border-top: none; }
+    .task-check { appearance: none; -webkit-appearance: none; width: 24px; height: 24px; margin-top: 10px; flex-shrink: 0; display: grid; place-content: center; border: 2px solid var(--pt-muted); border-radius: var(--pt-check-radius); background: var(--pt-surface); cursor: pointer; transition: background 0.15s, border-color 0.15s, transform 0.1s; }
+    .task-check::after { content: ''; width: 11px; height: 6px; border-left: 3px solid var(--pt-on-accent); border-bottom: 3px solid var(--pt-on-accent); transform: translate(0, -1px) rotate(-45deg) scale(0); transition: transform 0.15s; }
+    .task-check:checked { background: var(--pt-accent); border-color: var(--pt-accent); }
+    .task-check:checked::after { transform: translate(0, -1px) rotate(-45deg) scale(1); }
+    .task.pending .task-check:checked { background: #eab308; border-color: #eab308; }
+    .task-check:focus-visible { outline: 3px solid color-mix(in srgb, var(--pt-accent) 45%, transparent); outline-offset: 2px; }
+    .task-check:active:not(:disabled) { transform: scale(0.88); }
+    .task-check:disabled { cursor: not-allowed; opacity: 0.6; }
+    .task label { flex: 1; min-width: 0; display: flex; flex-wrap: wrap; align-items: center; gap: 6px 8px; min-height: 44px; padding: 8px 0; cursor: pointer; }
+    .task-title { flex: 1 1 200px; min-width: 0; overflow-wrap: anywhere; }
+    .task.done .task-title { color: var(--pt-muted); text-decoration: line-through; text-decoration-color: color-mix(in srgb, var(--pt-muted) 60%, transparent); }
+    .task-desc { flex-basis: 100%; font-size: 13px; color: var(--pt-muted); overflow-wrap: anywhere; }
+    .task-status { flex-basis: 100%; display: flex; align-items: flex-start; gap: 6px; font-size: 13px; font-weight: 600; overflow-wrap: anywhere; }
+    .task-status .pt-icon { width: 14px; height: 14px; margin-top: 3px; }
+    .task-status.pending { color: var(--pt-pending); }
+    .task-status.rejected { color: var(--pt-danger); }
+
+    /* Groups (checklist) */
+    .group { margin-bottom: 14px; overflow: hidden; }
+    .group > summary, .week > summary, .chapter > summary { list-style: none; cursor: pointer; }
+    .group > summary::-webkit-details-marker, .week > summary::-webkit-details-marker, .chapter > summary::-webkit-details-marker { display: none; }
+    .group > summary { display: flex; align-items: center; gap: 12px; padding: 14px 16px; min-height: 54px; }
+    .chev { color: var(--pt-muted); transition: transform 0.2s ease; }
+    details:not([open]) > summary .chev { transform: rotate(-90deg); }
+    .group-title { flex: 1; font-weight: 700; overflow-wrap: anywhere; }
+    .count { display: inline-flex; align-items: center; gap: 4px; font-size: 13px; color: var(--pt-muted); white-space: nowrap; }
+    .count.complete { color: var(--pt-good); font-weight: 800; }
+    .count .pt-icon { width: 15px; height: 15px; }
+    .group-body { padding: 0 16px 12px; }
+    .group.sub { margin: 6px 0; border: 1px solid var(--pt-border); border-radius: calc(var(--pt-radius) - 2px); background: var(--pt-surface-2); }
+    .group.sub > summary { padding: 10px 12px; min-height: 46px; }
+    .group.sub > .group-body { padding: 0 12px 8px; }
+    .group-desc { font-size: 13px; color: var(--pt-muted); margin-bottom: 8px; overflow-wrap: anywhere; }
+    .loose { padding: 4px 16px; margin-bottom: 14px; }
+    .divider { display: flex; align-items: center; gap: 10px; margin: 18px 0; color: var(--pt-muted); font-size: 13px; font-weight: 700; }
+    .divider::before, .divider::after { content: ''; flex: 1; height: 1px; background: var(--pt-border); }
+    .resources { display: flex; flex-wrap: wrap; gap: 8px; margin: 4px 0 10px; }
+    .resources a { display: inline-flex; align-items: center; gap: 6px; min-height: 40px; padding: 6px 12px; border: 1px solid var(--pt-border); border-radius: calc(var(--pt-radius) - 2px); color: var(--pt-accent); text-decoration: none; font-size: 13px; font-weight: 600; overflow-wrap: anywhere; }
+    .resources a:hover { background: var(--pt-hover); }
+    .resources a .pt-icon { width: 14px; height: 14px; }
+
+    /* Timeline */
+    .always { margin-bottom: 18px; }
+    .month-tabs { display: flex; gap: 8px; overflow-x: auto; padding: 2px 2px 6px; margin-bottom: 12px; scrollbar-width: thin; }
+    .month-tab { flex: 1 0 auto; min-width: 128px; display: flex; flex-direction: column; align-items: flex-start; gap: 2px; padding: 10px 14px; border: 1px solid var(--pt-border); border-radius: var(--pt-radius); background: var(--pt-surface); color: var(--pt-fg); font: inherit; font-weight: 800; cursor: pointer; text-align: left; }
+    .month-tab small { font-size: 12px; font-weight: 600; color: var(--pt-muted); }
+    .month-tab[aria-selected="true"] { background: var(--pt-accent); border-color: var(--pt-accent); color: var(--pt-on-accent); box-shadow: var(--pt-glow); }
+    .month-tab[aria-selected="true"] small { color: inherit; opacity: 0.85; }
+    .month-tab .pt-icon { width: 14px; height: 14px; }
+    .week { margin-bottom: 14px; overflow: hidden; }
+    .week > summary { display: flex; align-items: center; gap: 14px; padding: 14px 16px; }
+    .week-num { width: 48px; height: 48px; flex-shrink: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; border-radius: var(--pt-radius); background: var(--pt-hover); color: var(--pt-accent); font-size: 18px; font-weight: 900; line-height: 1; }
+    .week-num small { font-size: 9px; font-weight: 800; letter-spacing: 0.08em; text-transform: uppercase; color: var(--pt-muted); margin-bottom: 2px; }
+    .week.complete .week-num { background: var(--pt-good); color: var(--pt-on-accent); }
+    .week-head { flex: 1; min-width: 0; }
+    .week-title { font-weight: 800; overflow-wrap: anywhere; line-height: 1.3; }
+    .week-meta { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; }
+    .week-head .bar { height: 6px; margin-top: 8px; }
+    .week-body { padding: 0 16px 12px; }
+    .section-head { margin: 12px 0 2px; font-size: 12px; font-weight: 800; letter-spacing: 0.06em; text-transform: uppercase; color: var(--pt-muted); }
+    .milestone { display: flex; align-items: center; gap: 10px; padding: 12px 16px; margin-bottom: 14px; border: 1px dashed var(--pt-accent); border-radius: var(--pt-radius); color: var(--pt-accent); font-weight: 700; overflow-wrap: anywhere; }
+    .milestone.reached { border-style: solid; border-color: var(--pt-good); color: var(--pt-good); background: color-mix(in srgb, var(--pt-good) 10%, transparent); }
+
+    /* Quest */
+    .level-card { display: flex; align-items: center; gap: 18px; padding: 18px; margin-bottom: 18px; }
+    .level-ring { position: relative; width: 92px; height: 92px; flex-shrink: 0; border-radius: 50%; background: conic-gradient(var(--pt-gold) calc(var(--pct) * 1%), var(--pt-track) 0); display: flex; align-items: center; justify-content: center; box-shadow: var(--pt-glow); }
+    .level-ring::before { content: ''; position: absolute; inset: 7px; border-radius: 50%; background: var(--pt-surface); }
+    .level-ring .lv { position: relative; text-align: center; line-height: 1; }
+    .level-ring small { display: block; font-size: 10px; font-weight: 800; letter-spacing: 0.12em; color: var(--pt-muted); }
+    .level-ring strong { font-family: var(--pt-font-head); font-size: 32px; }
+    .level-info { flex: 1; min-width: 0; }
+    .rank { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 800; letter-spacing: 0.12em; text-transform: uppercase; color: var(--pt-gold); }
+    .rank .pt-icon { width: 14px; height: 14px; }
+    .level-title { font-size: 18px; font-weight: 800; margin: 2px 0 8px; }
+    .level-info .bar { height: 12px; margin-bottom: 6px; }
+    .level-meta { display: flex; justify-content: space-between; flex-wrap: wrap; gap: 4px 12px; font-size: 13px; color: var(--pt-muted); }
+    .level-meta strong { color: var(--pt-fg); }
+    .chapter { margin-bottom: 16px; overflow: hidden; }
+    .chapter > summary { display: block; padding: 16px 18px 14px; }
+    .chapter-top { display: flex; align-items: center; gap: 10px; }
+    .chapter-label { font-size: 11px; font-weight: 800; letter-spacing: 0.14em; text-transform: uppercase; color: var(--pt-accent); }
+    .chapter-top .count { margin-left: auto; }
+    .chapter-title { display: block; margin-top: 2px; font-size: 19px; font-weight: 800; line-height: 1.25; overflow-wrap: anywhere; }
+    .chapter-foot { display: flex; align-items: center; gap: 10px; margin-top: 10px; }
+    .chapter-foot .bar { flex: 1; height: 8px; }
+    .chapter.current { border-color: var(--pt-accent); box-shadow: var(--pt-glow), var(--pt-shadow); }
+    .chapter.cleared .chapter-title { color: var(--pt-muted); }
+    .chapter-body { padding: 0 18px 12px; }
+    .extras h2 { display: flex; align-items: center; gap: 8px; font-size: 18px; margin: 24px 0 12px; }
+    .extras h2 .pt-icon { color: var(--pt-gold); }
+    .extras h2 .count { margin-left: auto; }
+    .achievements { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 10px; }
+    .ach { display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 14px 10px; text-align: center; }
+    .ach-icon { width: 48px; height: 48px; border-radius: 50%; display: flex; align-items: center; justify-content: center; background: var(--pt-hover); color: var(--pt-muted); }
+    .ach-icon .pt-icon { width: 24px; height: 24px; }
+    .ach.unlocked .ach-icon { background: var(--pt-fill); color: var(--pt-on-accent); box-shadow: var(--pt-glow); }
+    .ach:not(.unlocked) { opacity: 0.7; }
+    .ach-name { font-weight: 800; font-size: 14px; }
+    .ach-desc { font-size: 12px; color: var(--pt-muted); }
+    .skills { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 10px; }
+    .skill { display: flex; flex-direction: column; gap: 8px; padding: 14px; }
+    .skill-head { display: flex; align-items: center; gap: 10px; font-weight: 800; }
+    .skill-head .pt-icon { color: var(--pt-accent); }
+    .skill p { font-size: 13px; color: var(--pt-muted); flex: 1; }
+
+    @media (max-width: 520px) {
+      body { padding: 12px 12px 48px; }
       h1 { font-size: 22px; }
+      .hero-icon { width: 48px; height: 48px; }
+      .level-card { padding: 14px; gap: 14px; }
+      .level-ring { width: 76px; height: 76px; }
+      .level-ring strong { font-size: 26px; }
+      .week > summary { gap: 10px; padding: 12px; }
+      .week-body, .group-body, .chapter-body { padding-left: 12px; padding-right: 12px; }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      .bar > span, .task-check, .task-check::after, .chev { transition: none; }
     }
   </style>
 </head>
 <body>
   <div class="container" id="app">
-    <div class="head">
-      <div class="head-icon" id="head-icon"></div>
-      <div>
+    <header class="hero">
+      <div class="hero-icon" id="hero-icon"></div>
+      <div class="hero-text">
         <h1 id="title">Tracker</h1>
         <p class="desc" id="desc"></p>
       </div>
-    </div>
-    <div class="note" id="note" hidden></div>
-    <div class="summary" id="summary"></div>
+      <button type="button" class="pt-icon-btn" id="menu-btn" aria-label="Tracker options" title="Options"></button>
+    </header>
+    <div id="notes"></div>
+    <div id="summary"></div>
     <div id="content"></div>
+    <div class="extras" id="extras"></div>
   </div>
+
+  <dialog class="pt-sheet" id="menu" aria-labelledby="menu-title"></dialog>
+  <input type="file" id="import-file" accept="application/json,.json" hidden>
 
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="../assets/js/app.js"></script>
   <script>
     const slug = new URLSearchParams(location.search).get('t') || '';
-    let data = null;
+    const $ = id => document.getElementById(id);
 
-    function statusOf(taskId) {
-      const entry = data.progress.get(taskId);
-      return entry ? entry.status : null;
+    // Godot rules live in the database (pt__godot_apply); these are display names only.
+    const ACHIEVEMENTS = [
+      { id: 'a1', name: 'Started', description: 'Complete 3 tasks', xp: 50, icon: 'star' },
+      { id: 'a2', name: 'Player', description: 'Complete Player Control', xp: 50, icon: 'gamepad' },
+      { id: 'a3', name: 'Combat', description: 'Finish the combat system', xp: 100, icon: 'swords' },
+      { id: 'a4', name: 'Polish', description: 'Complete the Polish phase', xp: 100, icon: 'sparkles' },
+      { id: 'a5', name: 'Quarter', description: 'Reach 25% completion', xp: 50, icon: 'target' },
+      { id: 'a6', name: 'Master', description: 'Complete the whole project', xp: 200, icon: 'crown' },
+    ];
+    const SKILLS = [
+      { id: 's1', name: '2x XP Week', description: '+2x XP multiplier next week', cost: 300, icon: 'zap' },
+      { id: 's2', name: 'Focus Bonus', description: '+25% XP when consistent', cost: 500, icon: 'flame' },
+      { id: 's3', name: 'Debug Mode', description: 'Advanced tracking tools', cost: 1000, icon: 'code' },
+    ];
+    // Progress saved in this browser by the old offline pages.
+    const LEGACY = {
+      godot: { key: 'godot-tracker-state', read: v => (v && Array.isArray(v.completedTasks) ? v.completedTasks : []) },
+      'career-pivot': { key: 'careerPivotProgress', read: v => (v && typeof v === 'object' ? Object.keys(v).filter(k => v[k] === true && /^item-\d+-\d+-\d+$/.test(k)) : []) },
+    };
+
+    let data = null;
+    const ui = { opened: new Set(), closed: new Set(), month: null };
+    const busy = new Set();
+
+    const isGodot = () => data.tracker.ruleset === 'godot';
+    const entry = id => data.progress.get(id) || null;
+    const statusOf = id => (entry(id) ? entry(id).status : null);
+    const isDone = id => ['approved', 'pending'].includes(statusOf(id));
+    const layout = () => (PT.LAYOUTS.some(l => l.id === data.tracker.layout) ? data.tracker.layout : 'checklist');
+    const fmt = n => Number(n || 0).toLocaleString();
+
+    function el(tag, cls, text) {
+      const node = document.createElement(tag);
+      if (cls) node.className = cls;
+      if (text != null) node.textContent = text;
+      return node;
     }
 
-    function countTasks(node) {
+    function chip(iconName, text, cls) {
+      const span = el('span', 'chip' + (cls ? ' ' + cls : ''));
+      if (iconName) span.appendChild(PT.iconEl(iconName));
+      span.appendChild(document.createTextNode(text));
+      return span;
+    }
+
+    function count(node) {
       let total = 0;
       let done = 0;
       node.children.forEach(child => {
         if (child.kind === 'task') {
           total += 1;
-          if (statusOf(child.id) === 'approved') done += 1;
-        } else {
-          const sub = countTasks(child);
+          if (isDone(child.id)) done += 1;
+        } else if (child.kind !== 'divider') {
+          const sub = count(child);
           total += sub.total;
           done += sub.done;
         }
       });
-      return { total, done };
+      return { total, done, complete: total > 0 && done === total };
     }
 
-    function renderSummary() {
+    function totals() {
       const total = data.tasks.length;
-      const done = data.tasks.filter(t => statusOf(t.id) === 'approved').length;
+      const done = data.tasks.filter(t => isDone(t.id)).length;
       const pending = data.tasks.filter(t => statusOf(t.id) === 'pending').length;
-      const pct = total ? Math.round((done / total) * 100) : 0;
-      document.getElementById('summary').innerHTML = `
-        <div class="summary-row">
-          <span><strong>${done} of ${total}</strong> done · ${pct}%</span>
-          <span>${pending ? `${pending} awaiting approval · ` : ''}<strong>${Number(data.trackerXp).toLocaleString()} XP</strong></span>
-        </div>
-        <div class="bar"><div style="width: ${pct}%"></div></div>`;
+      return { total, done, pending, pct: total ? Math.round((done / total) * 100) : 0 };
     }
 
-    function renderTask(task) {
-      const li = document.createElement('li');
-      li.className = 'task';
-      const box = document.createElement('input');
+    function barHtml(confirmedPct, pendingPct) {
+      const a = Math.max(0, Math.min(100, confirmedPct));
+      const b = Math.max(0, Math.min(100 - a, pendingPct || 0));
+      return `<div class="bar" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${Math.round(a + b)}"><span class="fill" style="width: ${a}%"></span>${b ? `<span class="pt-pending-stripes" style="width: ${b}%"></span>` : ''}</div>`;
+    }
+
+    function xpLineHtml() {
+      const earned = data.trackerXp - data.pendingXp;
+      return `<span><strong>${fmt(earned)} XP</strong> earned</span>` +
+        (data.pendingXp ? `<span class="pending-text">${PT.icon('clock')}${fmt(data.pendingXp)} XP pending review</span>` : '');
+    }
+
+    // Remembers which groups the user opened or closed across re-renders.
+    function bindOpen(details, id, openByDefault) {
+      details.open = ui.opened.has(id) ? true : ui.closed.has(id) ? false : openByDefault;
+      details.addEventListener('toggle', () => {
+        (details.open ? ui.opened : ui.closed).add(id);
+        (details.open ? ui.closed : ui.opened).delete(id);
+      });
+    }
+
+    /* ---------- Shared pieces ---------- */
+
+    function taskRow(task) {
+      const st = statusOf(task.id);
+      const progress = entry(task.id);
+      const done = st === 'approved' || st === 'pending';
+      const li = el('li', 'task' + (done ? ' done' : '') + (st === 'pending' ? ' pending' : '') + (st === 'rejected' ? ' rejected' : ''));
+      const box = el('input', 'task-check pt-needs-online');
       box.type = 'checkbox';
       box.id = `task-${task.id}`;
-      box.className = 'pt-needs-online';
-      const label = document.createElement('label');
+      box.checked = done;
+      box.disabled = !data.canEdit || busy.has(task.id) || (st === 'approved' && !data.tracker.allow_uncheck);
+      const label = el('label');
       label.htmlFor = box.id;
-      const title = document.createElement('span');
-      title.className = 'task-title';
-      title.textContent = task.title;
-      const badge = document.createElement('span');
-      label.append(title, badge);
-      if (task.difficulty) {
-        const diff = document.createElement('span');
-        diff.className = 'difficulty';
-        diff.textContent = task.difficulty;
-        label.appendChild(diff);
+      label.appendChild(el('span', 'task-title', task.title));
+      const repeat = isGodot() ? 'none' : task.repeat;
+      if (repeat === 'daily') label.appendChild(chip('repeat', done ? 'Done today' : 'Daily', 'chip--repeat'));
+      if (repeat === 'weekly') label.appendChild(chip('repeat', done ? 'Done this week' : 'Weekly', 'chip--repeat'));
+      if (task.difficulty) label.appendChild(chip(null, task.difficulty, `chip--diff chip--${task.difficulty}`));
+      if (st === 'pending') label.appendChild(chip('clock', `+${fmt(progress.awarded_xp ?? task.xp)} XP pending`, 'chip--pending'));
+      else if (task.xp) label.appendChild(chip('zap', `+${fmt(task.xp)} XP`, 'chip--xp'));
+      if (task.description) label.appendChild(el('span', 'task-desc', task.description));
+      if (st === 'pending') {
+        const s = el('span', 'task-status pending');
+        s.append(PT.iconEl('clock'), el('span', null, 'Waiting for review. The XP counts now and is removed if this is sent back.'));
+        label.appendChild(s);
+      } else if (st === 'rejected') {
+        const s = el('span', 'task-status rejected');
+        const note = progress.review_note ? `: "${progress.review_note}"` : '';
+        s.append(PT.iconEl('x'), el('span', null, `Sent back${note}. Tick it again when it is done.`));
+        label.appendChild(s);
       }
-      const xp = document.createElement('span');
-      xp.className = 'xp';
-      xp.textContent = `+${task.xp} XP`;
-      label.appendChild(xp);
-      if (task.description) {
-        const desc = document.createElement('span');
-        desc.className = 'task-desc';
-        desc.textContent = task.description;
-        label.appendChild(desc);
-      }
+      box.addEventListener('change', () => toggle(task, box));
       li.append(box, label);
-
-      const paint = () => {
-        const status = statusOf(task.id);
-        box.checked = status === 'approved' || status === 'pending';
-        box.disabled = !data.canEdit || (status === 'approved' && !data.tracker.allow_uncheck);
-        li.classList.toggle('done', status === 'approved');
-        badge.innerHTML = status === 'pending'
-          ? `<span class="pt-pending-badge">${PT.icon('clock')}Awaiting approval</span>`
-          : status === 'rejected' ? '<span class="rejected">Sent back, try again</span>' : '';
-      };
-
-      box.addEventListener('change', async () => {
-        const want = box.checked;
-        box.disabled = true;
-        try {
-          if (want) {
-            const res = await PT.completeTask(task.id);
-            data.progress.set(task.id, { task_id: task.id, status: res.status });
-            if (res.status === 'pending') PT.toast('Sent for approval');
-            else if (res.changed) {
-              data.trackerXp += res.awarded_xp || 0;
-              PT.toast(`+${res.awarded_xp || 0} XP`);
-            }
-          } else {
-            const res = await PT.uncompleteTask(task.id);
-            data.progress.delete(task.id);
-            if (res.refunded_xp) {
-              data.trackerXp -= res.refunded_xp;
-              PT.toast(`-${res.refunded_xp} XP`);
-            }
-          }
-        } catch (error) {
-          PT.toast(error.message, 'error');
-        }
-        paint();
-        renderSummary();
-      });
-
-      paint();
       return li;
     }
 
-    function renderResources(list) {
+    function resourcesEl(list) {
       const links = (list || []).filter(r => PT.safeUrl(r.url));
       if (!links.length) return null;
-      const wrap = document.createElement('div');
-      wrap.className = 'resources';
+      const wrap = el('div', 'resources');
       links.forEach(r => {
-        const a = document.createElement('a');
+        const a = el('a');
         a.href = PT.safeUrl(r.url);
         a.target = '_blank';
         a.rel = 'noopener noreferrer';
@@ -226,56 +354,530 @@
       return wrap;
     }
 
-    function renderChildren(children, host) {
+    function dividerEl(node) {
+      const div = el('div', 'divider');
+      div.appendChild(el('span', null, node.title));
+      return div;
+    }
+
+    function countEl(c) {
+      const span = el('span', 'count' + (c.complete ? ' complete' : ''));
+      if (c.complete) span.appendChild(PT.iconEl('check-circle'));
+      span.appendChild(document.createTextNode(c.total ? `${c.done}/${c.total}` : ''));
+      return span;
+    }
+
+    function addDescAndLinks(node, host, cls) {
+      if (node.description) host.appendChild(el('p', cls || 'group-desc', node.description));
+      const res = resourcesEl(node.task_resources);
+      if (res) host.appendChild(res);
+    }
+
+    // Renders a mixed list: runs of tasks become one list, groups become collapsible blocks.
+    function renderNodes(nodes, host, depth) {
       let list = null;
-      children.forEach(child => {
+      nodes.forEach(node => {
+        if (node.kind === 'task') {
+          if (!list) {
+            list = el('ul', 'tasks');
+            if (depth === 0) {
+              const card = el('div', 'card loose');
+              card.appendChild(list);
+              host.appendChild(card);
+            } else {
+              host.appendChild(list);
+            }
+          }
+          list.appendChild(taskRow(node));
+          return;
+        }
+        list = null;
+        if (node.kind === 'divider') host.appendChild(dividerEl(node));
+        else host.appendChild(groupEl(node, depth));
+      });
+    }
+
+    function groupEl(node, depth) {
+      const c = count(node);
+      const details = el('details', depth === 0 ? 'group card' : 'group sub');
+      bindOpen(details, node.id, depth > 0 || !c.complete);
+      const summary = el('summary');
+      summary.append(PT.iconEl('chevron-down', 'chev'),
+        el('span', 'group-title', node.week_number && depth === 0 ? `Week ${node.week_number}: ${node.title}` : node.title),
+        countEl(c));
+      const body = el('div', 'group-body');
+      addDescAndLinks(node, body);
+      renderNodes(node.children, body, depth + 1);
+      details.append(summary, body);
+      return details;
+    }
+
+    /* ---------- Header pieces ---------- */
+
+    function renderNotes() {
+      const host = $('notes');
+      host.innerHTML = '';
+      const add = (iconName, text) => {
+        const note = el('div', 'note card');
+        note.append(PT.iconEl(iconName), el('span', null, text));
+        host.appendChild(note);
+      };
+      if (data.role === 'guardian') add('shield', 'You review this tracker. Approve or send back completed tasks from the Home page.');
+      else if (data.readOnly) add('eye', 'You can view this tracker but not tick tasks.');
+      else if (data.tracker.requires_approval && data.role === 'member') add('shield', 'Tick a task when you finish it. You get the XP straight away, marked as pending until it is reviewed. If it is sent back, the XP is removed.');
+      if (isGodot() && data.canEdit) add('lock', 'Tasks here are complete-once: they cannot be unticked.');
+    }
+
+    function renderSummary() {
+      const t = totals();
+      const card = el('section', 'card summary');
+      const hasRepeats = !isGodot() && data.tasks.some(x => x.repeat && x.repeat !== 'none');
+      card.innerHTML = `
+        <div class="summary-top">
+          <div class="pct-ring" style="--pct: ${t.pct}"><span>${t.pct}%</span></div>
+          <div class="summary-text">
+            <strong>${t.done} of ${t.total}</strong> tasks done
+            <div class="meta-line">${xpLineHtml()}</div>
+          </div>
+        </div>
+        ${barHtml(t.total ? ((t.done - t.pending) / t.total) * 100 : 0, t.total ? (t.pending / t.total) * 100 : 0)}
+        ${hasRepeats ? `<p class="hint">${PT.icon('repeat')}Daily tasks reset each day and weekly tasks each Monday.</p>` : ''}`;
+      $('summary').appendChild(card);
+    }
+
+    function levelInfo() {
+      if (isGodot()) {
+        const a = data.aggregate || {};
+        const level = a.level || 1;
+        const needed = 100 * level;
+        const into = a.current_xp || 0;
+        return { level, into, needed, pct: Math.min(100, (into / needed) * 100), total: a.total_xp || 0 };
+      }
+      return { ...PT.lifeLevel(data.trackerXp), total: data.trackerXp };
+    }
+
+    function renderLevelCard() {
+      const lv = levelInfo();
+      const t = totals();
+      const pendingPct = isGodot() ? 0 : Math.min(lv.pct, (data.pendingXp / lv.needed) * 100);
+      const card = el('section', 'card level-card');
+      card.innerHTML = `
+        <div class="level-ring" style="--pct: ${lv.pct.toFixed(1)}"><div class="lv"><small>LEVEL</small><strong>${lv.level}</strong></div></div>
+        <div class="level-info">
+          <span class="rank">${PT.icon('crown')}${PT.esc(PT.rankFor(lv.level))}</span>
+          <div class="level-title">${t.done} / ${t.total} quests complete</div>
+          ${barHtml(lv.pct - pendingPct, pendingPct)}
+          <div class="level-meta">
+            <span><strong>${fmt(lv.into)}</strong> / ${fmt(lv.needed)} XP to level ${lv.level + 1}</span>
+            <span>${fmt(lv.total)} XP total</span>
+          </div>
+          ${data.pendingXp ? `<div class="level-meta"><span class="pending-text">${PT.icon('clock')}${fmt(data.pendingXp)} XP pending review</span></div>` : ''}
+        </div>`;
+      $('summary').appendChild(card);
+    }
+
+    /* ---------- Layouts ---------- */
+
+    function renderChecklist() {
+      renderNodes(data.roots, $('content'), 0);
+    }
+
+    function renderTimeline() {
+      const host = $('content');
+      const always = data.roots.filter(n => !n.week_number);
+      const dated = data.roots.filter(n => n.week_number);
+      if (always.length) {
+        const wrap = el('div', 'always');
+        renderNodes(always, wrap, 0);
+        host.appendChild(wrap);
+      }
+      if (!dated.length) return;
+
+      const monthOf = n => n.month_number || Math.ceil(n.week_number / 4);
+      const months = [...new Set(dated.map(monthOf))].sort((a, b) => a - b);
+      const stats = m => dated.filter(n => monthOf(n) === m).reduce((acc, n) => {
+        const c = n.kind === 'task' ? { total: 1, done: isDone(n.id) ? 1 : 0 } : n.kind === 'divider' ? { total: 0, done: 0 } : count(n);
+        return { total: acc.total + c.total, done: acc.done + c.done };
+      }, { total: 0, done: 0 });
+      if (!months.includes(ui.month)) {
+        ui.month = months.find(m => { const s = stats(m); return s.done < s.total; }) ?? months[months.length - 1];
+      }
+
+      if (months.length > 1) {
+        const tabs = el('div', 'month-tabs');
+        tabs.setAttribute('role', 'tablist');
+        tabs.setAttribute('aria-label', 'Months');
+        months.forEach(m => {
+          const weeks = dated.filter(n => monthOf(n) === m).map(n => n.week_number);
+          const s = stats(m);
+          const btn = el('button', 'month-tab');
+          btn.type = 'button';
+          btn.setAttribute('role', 'tab');
+          btn.setAttribute('aria-selected', String(m === ui.month));
+          btn.tabIndex = m === ui.month ? 0 : -1;
+          const first = Math.min(...weeks);
+          const last = Math.max(...weeks);
+          btn.innerHTML = `<span>Month ${m}</span><small>${first === last ? `Week ${first}` : `Weeks ${first}-${last}`} &middot; ${s.done}/${s.total}${s.total && s.done === s.total ? ' ' + PT.icon('check-circle') : ''}</small>`;
+          btn.addEventListener('click', () => {
+            ui.month = m;
+            render();
+            const again = [...document.querySelectorAll('.month-tab')].find(b => b.getAttribute('aria-selected') === 'true');
+            if (again) again.focus();
+          });
+          btn.addEventListener('keydown', event => {
+            const step = event.key === 'ArrowRight' ? 1 : event.key === 'ArrowLeft' ? -1 : 0;
+            if (!step) return;
+            event.preventDefault();
+            const i = months.indexOf(ui.month);
+            ui.month = months[(i + step + months.length) % months.length];
+            render();
+            const again = [...document.querySelectorAll('.month-tab')].find(b => b.getAttribute('aria-selected') === 'true');
+            if (again) again.focus();
+          });
+          tabs.appendChild(btn);
+        });
+        host.appendChild(tabs);
+      }
+
+      let loose = null;
+      dated.filter(n => monthOf(n) === ui.month).forEach(node => {
+        if (node.kind === 'task') {
+          if (!loose) {
+            const card = el('div', 'card loose');
+            loose = el('ul', 'tasks');
+            card.appendChild(loose);
+            host.appendChild(card);
+          }
+          loose.appendChild(taskRow(node));
+          return;
+        }
+        loose = null;
+        host.appendChild(node.kind === 'divider' ? milestoneEl(node, dated) : weekEl(node));
+      });
+    }
+
+    function weekEl(node) {
+      const c = count(node);
+      const details = el('details', 'week card' + (c.complete ? ' complete' : ''));
+      bindOpen(details, node.id, !c.complete);
+      const summary = el('summary');
+      const num = el('div', 'week-num');
+      if (c.complete) num.appendChild(PT.iconEl('check'));
+      else num.innerHTML = `<small>Week</small>${Number(node.week_number)}`;
+      const head = el('div', 'week-head');
+      head.appendChild(el('div', 'week-title', node.title));
+      const meta = el('div', 'week-meta');
+      if (node.time_estimate) meta.appendChild(chip('clock', node.time_estimate));
+      if (c.total) meta.appendChild(chip(c.complete ? 'check-circle' : 'list', `${c.done}/${c.total} done`));
+      head.appendChild(meta);
+      head.insertAdjacentHTML('beforeend', barHtml(c.total ? (c.done / c.total) * 100 : 0, 0));
+      summary.append(num, head, PT.iconEl('chevron-down', 'chev'));
+
+      const body = el('div', 'week-body');
+      addDescAndLinks(node, body);
+      const groups = node.children.filter(ch => ch.kind !== 'task' && ch.kind !== 'divider');
+      let list = null;
+      node.children.forEach(child => {
         if (child.kind === 'task') {
           if (!list) {
-            list = document.createElement('ul');
-            list.className = 'tasks';
-            host.appendChild(list);
+            list = el('ul', 'tasks');
+            body.appendChild(list);
           }
-          list.appendChild(renderTask(child));
+          list.appendChild(taskRow(child));
           return;
         }
         list = null;
         if (child.kind === 'divider') {
-          const div = document.createElement('div');
-          div.className = 'divider';
-          div.append(PT.iconEl('check-circle'), document.createTextNode(child.title));
-          host.appendChild(div);
+          body.appendChild(dividerEl(child));
           return;
         }
-        host.appendChild(renderGroup(child));
+        // A single section is just a container, so its heading is left out.
+        if (groups.length > 1) body.appendChild(el('h3', 'section-head', child.title));
+        addDescAndLinks(child, body);
+        renderNodes(child.children, body, 1);
+      });
+      details.append(summary, body);
+      return details;
+    }
+
+    function milestoneEl(node, dated) {
+      const before = dated.filter(n => n.kind !== 'divider' && n.week_number <= node.week_number);
+      const all = before.reduce((acc, n) => {
+        const c = n.kind === 'task' ? { total: 1, done: isDone(n.id) ? 1 : 0 } : count(n);
+        return { total: acc.total + c.total, done: acc.done + c.done };
+      }, { total: 0, done: 0 });
+      const reached = all.total > 0 && all.done === all.total;
+      const div = el('div', 'milestone' + (reached ? ' reached' : ''));
+      div.append(PT.iconEl(reached ? 'trophy' : 'flag'), el('span', null, node.title));
+      return div;
+    }
+
+    function renderQuest() {
+      const host = $('content');
+      const chapters = data.roots.filter(n => n.kind !== 'task' && n.kind !== 'divider');
+      const current = chapters.find(n => !count(n).complete);
+      let index = 0;
+      data.roots.forEach(node => {
+        if (node.kind === 'divider') host.appendChild(dividerEl(node));
+        else if (node.kind !== 'task') host.appendChild(chapterEl(node, ++index, node === current));
+      });
+      const side = data.roots.filter(n => n.kind === 'task');
+      if (side.length) {
+        const card = el('section', 'card chapter');
+        const head = el('div', 'chapter-top');
+        head.style.padding = '16px 18px 0';
+        head.appendChild(el('span', 'chapter-label', 'Side quests'));
+        const list = el('ul', 'tasks chapter-body');
+        side.forEach(t => list.appendChild(taskRow(t)));
+        card.append(head, list);
+        host.appendChild(card);
+      }
+    }
+
+    function chapterEl(node, index, isCurrent) {
+      const c = count(node);
+      const xp = (function sum(n) { return n.children.reduce((s, ch) => s + (ch.kind === 'task' ? ch.xp : sum(ch)), 0); })(node);
+      const details = el('details', 'chapter card' + (isCurrent ? ' current' : '') + (c.complete ? ' cleared' : ''));
+      bindOpen(details, node.id, !c.complete);
+      const summary = el('summary');
+      const top = el('div', 'chapter-top');
+      top.appendChild(el('span', 'chapter-label', isCurrent ? `Chapter ${index} \u00b7 Current` : `Chapter ${index}`));
+      if (c.complete) top.appendChild(chip('trophy', 'Cleared', 'chip--xp'));
+      else top.appendChild(countEl(c));
+      const foot = el('div', 'chapter-foot');
+      foot.insertAdjacentHTML('beforeend', barHtml(c.total ? (c.done / c.total) * 100 : 0, 0));
+      if (xp) foot.appendChild(chip('zap', `${fmt(xp)} XP`, 'chip--xp'));
+      summary.append(top, el('span', 'chapter-title', node.title), foot);
+      const body = el('div', 'chapter-body');
+      addDescAndLinks(node, body);
+      renderNodes(node.children, body, 1);
+      details.append(summary, body);
+      return details;
+    }
+
+    function renderGodotExtras() {
+      const host = $('extras');
+      const agg = data.aggregate || {};
+      const unlocked = new Set(agg.unlocked_achievements || []);
+      const skills = new Set(agg.unlocked_skills || []);
+      const total = agg.total_xp || 0;
+      host.insertAdjacentHTML('beforeend', `<h2>${PT.icon('trophy')}<span>Achievements</span><span class="count">${unlocked.size} / ${ACHIEVEMENTS.length}</span></h2>`);
+      const grid = el('div', 'achievements');
+      ACHIEVEMENTS.forEach(a => {
+        const on = unlocked.has(a.id);
+        const card = el('div', 'card ach' + (on ? ' unlocked' : ''));
+        card.innerHTML = `<div class="ach-icon">${PT.icon(on ? a.icon : 'lock')}</div><div class="ach-name">${PT.esc(a.name)}</div><div class="ach-desc">${PT.esc(a.description)}</div>`;
+        card.appendChild(chip('zap', `+${a.xp} XP`, 'chip--xp'));
+        grid.appendChild(card);
+      });
+      host.appendChild(grid);
+
+      host.insertAdjacentHTML('beforeend', `<h2>${PT.icon('sparkles')}<span>Skills</span></h2>`);
+      const list = el('div', 'skills');
+      SKILLS.forEach(s => {
+        const card = el('div', 'card skill');
+        card.innerHTML = `<div class="skill-head">${PT.icon(s.icon)}<span>${PT.esc(s.name)}</span></div><p>${PT.esc(s.description)}</p>`;
+        let btn;
+        if (skills.has(s.id)) btn = PT.button('Unlocked', 'check', () => {}, '');
+        else if (total >= s.cost && data.canEdit) btn = PT.button(`Unlock (${fmt(s.cost)} XP)`, 'sparkles', () => unlockSkill(s, btn), 'pt-btn--primary pt-needs-online');
+        else btn = PT.button(`Needs ${fmt(s.cost)} XP`, 'lock', () => {}, '');
+        if (skills.has(s.id) || !(total >= s.cost && data.canEdit)) btn.disabled = true;
+        card.appendChild(btn);
+        list.appendChild(card);
+      });
+      host.appendChild(list);
+    }
+
+    async function unlockSkill(skill, btn) {
+      btn.disabled = true;
+      try {
+        const res = await PT.rpc('pt_godot_unlock_skill', { p_tracker: data.tracker.id, p_skill: skill.id });
+        data.aggregate = { ...(data.aggregate || {}), unlocked_skills: res.unlocked_skills };
+        PT.toast(`Skill unlocked: ${skill.name}`, 'reward');
+      } catch (error) {
+        PT.toast(error.message, 'error');
+      }
+      render();
+    }
+
+    function render() {
+      ['summary', 'content', 'extras'].forEach(id => { $(id).innerHTML = ''; });
+      const kind = layout();
+      if (kind === 'quest') renderLevelCard();
+      else renderSummary();
+      if (!data.roots.length) {
+        $('content').appendChild(el('p', 'empty', data.isCreator ? 'No tasks yet. Add some from the options menu > Manage.' : 'No tasks yet.'));
+      } else if (kind === 'timeline') renderTimeline();
+      else if (kind === 'quest') renderQuest();
+      else renderChecklist();
+      if (isGodot()) renderGodotExtras();
+    }
+
+    /* ---------- Ticking ---------- */
+
+    function applyGodot(result) {
+      data.aggregate = {
+        ...(data.aggregate || {}),
+        level: result.level,
+        current_xp: result.current_xp,
+        total_xp: result.total_xp,
+        unlocked_achievements: result.unlocked_achievements,
+        unlocked_skills: result.unlocked_skills,
+      };
+      (result.new_achievements || []).forEach(id => {
+        const a = ACHIEVEMENTS.find(x => x.id === id);
+        if (!a) return;
+        data.trackerXp += a.xp;
+        PT.toast(`Achievement unlocked: ${a.name} (+${a.xp} XP)`, 'reward');
+      });
+      if (result.leveled_up) PT.toast(`Level up! You reached level ${result.level}`, 'reward');
+    }
+
+    async function toggle(task, box) {
+      const want = box.checked;
+      const hadFocus = document.activeElement === box;
+      const levelBefore = levelInfo().level;
+      busy.add(task.id);
+      box.disabled = true;
+      try {
+        if (want) {
+          const res = await PT.completeTask(task.id);
+          if (res.changed) {
+            data.progress.set(task.id, { task_id: task.id, status: res.status, awarded_xp: res.awarded_xp, period_key: res.period_key });
+            data.trackerXp += res.awarded_xp || 0;
+            if (res.status === 'pending') data.pendingXp += res.awarded_xp || 0;
+          } else {
+            data.progress.set(task.id, { ...(entry(task.id) || {}), task_id: task.id, status: res.status });
+          }
+          PT.announceCompletion(res);
+          if (res.godot) applyGodot(res.godot);
+          else if (layout() === 'quest' && levelInfo().level > levelBefore) PT.toast(`Level up! ${PT.rankFor(levelInfo().level)}, level ${levelInfo().level}`, 'reward');
+        } else {
+          const res = await PT.uncompleteTask(task.id);
+          data.progress.delete(task.id);
+          if (res.refunded_xp) {
+            data.trackerXp -= res.refunded_xp;
+            if (res.was === 'pending') data.pendingXp -= res.refunded_xp;
+            PT.toast(`-${res.refunded_xp} XP`);
+          }
+        }
+      } catch (error) {
+        PT.toast(error.message, 'error');
+      }
+      busy.delete(task.id);
+      render();
+      if (hadFocus) {
+        const again = $(`task-${task.id}`);
+        if (again) again.focus();
+      }
+    }
+
+    /* ---------- Options menu ---------- */
+
+    async function reload() {
+      data = await PT.loadTracker(slug);
+      renderNotes();
+      render();
+    }
+
+    async function runImport(keys, source) {
+      const list = (keys || []).map(String).filter(Boolean);
+      if (!list.length) {
+        PT.toast(`Nothing to import from ${source}`, 'error');
+        return;
+      }
+      try {
+        const res = await PT.importCompletions(data.tracker.id, list);
+        const unknown = (res.unknown || []).length;
+        PT.toast(`Imported ${res.imported}, ${res.already} already done${unknown ? `, ${unknown} not found` : ''}`);
+        await reload();
+      } catch (error) {
+        PT.toast(error.message, 'error');
+      }
+    }
+
+    function legacyKeys() {
+      const legacy = LEGACY[data.tracker.slug];
+      if (!legacy) return [];
+      try {
+        return legacy.read(JSON.parse(localStorage.getItem(legacy.key) || 'null'));
+      } catch {
+        return [];
+      }
+    }
+
+    function exportProgress() {
+      const rows = [...data.progress.values()].filter(p => p.status === 'approved' || p.status === 'pending');
+      PT.download(`${data.tracker.slug}-progress-${new Date().toISOString().slice(0, 10)}.json`, {
+        tracker: data.tracker.slug,
+        name: data.tracker.name,
+        exported_at: new Date().toISOString(),
+        xp: data.trackerXp,
+        pending_xp: data.pendingXp,
+        completedTasks: rows.map(p => { const t = data.byId.get(p.task_id); return (t && t.legacy_key) || p.task_id; }),
+        items: rows.map(p => { const t = data.byId.get(p.task_id); return { task_id: p.task_id, title: t ? t.title : null, status: p.status, period: p.period_key, completed_at: p.completed_at || null }; }),
       });
     }
 
-    function renderGroup(node) {
-      const details = document.createElement('details');
-      details.className = 'group';
-      details.open = true;
-      const summary = document.createElement('summary');
-      const counts = countTasks(node);
-      const title = document.createElement('span');
-      title.className = 'group-title';
-      title.textContent = node.week_number ? `Week ${node.week_number}: ${node.title}` : node.title;
-      const count = document.createElement('span');
-      count.className = 'group-count';
-      count.textContent = counts.total ? `${counts.done}/${counts.total}` : '';
-      summary.append(PT.iconEl('chevron-down', 'chev'), title, count);
-      const body = document.createElement('div');
-      body.className = 'group-body';
-      if (node.description) {
-        const desc = document.createElement('p');
-        desc.className = 'group-desc';
-        desc.textContent = node.description;
-        body.appendChild(desc);
+    function openMenu() {
+      const sheet = $('menu');
+      const legacy = data.canEdit ? legacyKeys() : [];
+      sheet.innerHTML = `
+        <div class="pt-sheet-head">
+          <h2 id="menu-title">${PT.esc(data.tracker.name)}</h2>
+          <button type="button" class="pt-icon-btn" data-close aria-label="Close">${PT.icon('x')}</button>
+        </div>
+        <nav class="pt-sheet-links">
+          <button type="button" data-act="export">${PT.icon('download')}<span>Export my progress</span></button>
+          ${data.canEdit ? `<button type="button" data-act="import-file" class="pt-needs-online">${PT.icon('upload')}<span>Import from a file</span></button>` : ''}
+          ${legacy.length ? `<button type="button" data-act="import-browser" class="pt-needs-online">${PT.icon('upload')}<span>Import ${legacy.length} from this browser</span></button>` : ''}
+          ${data.isCreator ? `<a href="admin.html?t=${encodeURIComponent(data.tracker.slug)}">${PT.icon('sliders')}<span>Manage this tracker</span>${PT.icon('chevron-right', 'pt-chev')}</a>` : ''}
+          ${data.canEdit ? `<button type="button" data-act="reset" class="pt-danger-link pt-needs-online">${PT.icon('rotate-ccw')}<span>Reset my progress</span></button>` : ''}
+        </nav>`;
+      sheet.querySelector('[data-close]').addEventListener('click', () => sheet.close());
+      sheet.querySelectorAll('[data-act]').forEach(btn => btn.addEventListener('click', async () => {
+        sheet.close();
+        const act = btn.dataset.act;
+        if (act === 'export') exportProgress();
+        if (act === 'import-file') $('import-file').click();
+        if (act === 'import-browser') await runImport(legacy, 'this browser');
+        if (act === 'reset') {
+          if (!confirm('Reset your progress on this tracker? Your ticks are cleared and this tracker\'s XP is removed from your Life Level.')) return;
+          try {
+            const res = await PT.resetTracker(data.tracker.id);
+            PT.toast(`Progress reset${res.removed_xp ? ` (-${res.removed_xp} XP)` : ''}`);
+            await reload();
+          } catch (error) {
+            PT.toast(error.message, 'error');
+          }
+        }
+      }));
+      sheet.showModal();
+    }
+
+    async function importFile(event) {
+      const file = event.target.files[0];
+      event.target.value = '';
+      if (!file) return;
+      if (file.size > 1024 * 1024) {
+        PT.toast('That file is too large', 'error');
+        return;
       }
-      const res = renderResources(node.task_resources);
-      if (res) body.appendChild(res);
-      renderChildren(node.children, body);
-      details.append(summary, body);
-      return details;
+      try {
+        const json = JSON.parse(await file.text());
+        let keys = Array.isArray(json.completedTasks) ? json.completedTasks : [];
+        if (!keys.length && LEGACY['career-pivot'].read(json).length) keys = LEGACY['career-pivot'].read(json);
+        await runImport(keys, 'the file');
+      } catch {
+        PT.toast('That file is not a progress export', 'error');
+      }
+    }
+
+    function applyTheme() {
+      const theme = PT.THEMES.some(t => t.id === data.tracker.theme) ? data.tracker.theme : 'minimal';
+      document.documentElement.dataset.theme = theme;
+      const bg = getComputedStyle(document.documentElement).getPropertyValue('--pt-bg').trim();
+      if (bg) document.querySelector('meta[name="theme-color"]').setAttribute('content', bg);
     }
 
     async function start() {
@@ -287,29 +889,24 @@
         PT.showGate(error.message, true, [PT.link('Home', 'home', PT.url('index.html')), PT.button('Sign out', 'log-out', PT.signOut)]);
         return;
       }
+      applyTheme();
       PT.mountNav('#app');
       document.title = data.tracker.name;
-      document.getElementById('title').textContent = data.tracker.name;
-      document.getElementById('desc').textContent = data.tracker.description || '';
-      document.getElementById('head-icon').innerHTML = PT.icon(PT.TRACKER_ICONS.includes(data.tracker.icon) ? data.tracker.icon : 'target');
-
-      const note = document.getElementById('note');
-      if (data.role === 'guardian') {
-        note.hidden = false;
-        note.innerHTML = PT.icon('shield') + '<span>You review this tracker. Approve completed tasks from the Home page.</span>';
-      } else if (data.tracker.requires_approval && data.role === 'member') {
-        note.hidden = false;
-        note.innerHTML = PT.icon('shield') + '<span>Tick a task when you finish it. You get the XP once it is approved.</span>';
-      }
-
-      renderSummary();
-      const content = document.getElementById('content');
-      if (!data.roots.length) {
-        content.innerHTML = '<p class="empty">No tasks yet.</p>';
-      } else {
-        renderChildren(data.roots, content);
-      }
+      $('title').textContent = data.tracker.name;
+      $('desc').textContent = data.tracker.description || '';
+      $('hero-icon').innerHTML = PT.icon(PT.TRACKER_ICONS.includes(data.tracker.icon) ? data.tracker.icon : 'target');
+      $('menu-btn').innerHTML = PT.icon('more-vertical');
+      $('menu-btn').addEventListener('click', openMenu);
+      $('menu').addEventListener('click', event => { if (event.target === $('menu')) $('menu').close(); });
+      $('import-file').addEventListener('change', importFile);
+      renderNotes();
+      render();
       PT.hideGate();
+
+      // Picks up reviews and the daily/weekly reset when the tab comes back.
+      document.addEventListener('visibilitychange', () => {
+        if (document.visibilityState === 'visible' && !busy.size) reload().catch(() => {});
+      });
     }
 
     start();

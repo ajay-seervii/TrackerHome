@@ -14,6 +14,7 @@ declare
   owner_email text := 'raanginrajasthan@gmail.com';
 begin
   perform public.pt_admin_approve_user(owner_email, null, 'Asia/Kolkata');
+  update public.users set is_admin = true where lower(email) = owner_email and not is_admin;
 
   perform public.pt_admin_create_tracker('godot', 'Godot Game', 'Hack & slash game in Godot 4 with C#',
     owner_email, 'godot', 'godot_plan.html', 'gamepad', false, false);
@@ -26,6 +27,27 @@ end $$;
 update public.tracker_access a set role = 'owner'
 from public.trackers t
 where t.id = a.tracker_id and t.created_by = a.user_id and a.role = 'member';
+
+-- One-time: the two custom pages became layouts of the shared tracker page.
+-- Matching on the old page name means later layout/theme choices are kept.
+update public.trackers set layout = 'quest', theme = 'rpg', page = null
+where slug = 'godot' and page = 'godot_plan.html';
+update public.trackers set layout = 'timeline', theme = 'minimal', page = null
+where slug = 'career-pivot' and page = '3month_plan.html';
+
+-- One-time: ticks that were waiting for review earned no XP under the old
+-- rules. They now get it, and lose it again if the reviewer rejects them.
+with upd as (
+  update public.task_progress tp
+  set awarded_xp = t.xp, updated_at = now()
+  from public.tasks t
+  where t.id = tp.task_id and tp.status = 'pending' and tp.awarded_xp is null
+  returning tp.user_id, tp.tracker_id, tp.task_id, tp.awarded_xp, tp.completed_at)
+insert into public.xp_events (user_id, tracker_id, task_id, amount, reason, occurred_on)
+select upd.user_id, upd.tracker_id, upd.task_id, upd.awarded_xp, 'task',
+       (upd.completed_at at time zone coalesce(u.timezone, 'UTC'))::date
+from upd left join public.users u on u.id = upd.user_id
+where upd.awarded_xp <> 0;
 
 -- ---------------------------------------------------------------------
 -- Badges
@@ -254,11 +276,173 @@ begin
   end loop;
 end $$;
 
+-- ---------------------------------------------------------------------
+-- Sample trackers: one for each layout and several themes, owned by you.
+-- They are normal trackers, so you can tick tasks and try the styles.
+-- Remove them all (tasks, ticks and their XP go too):
+--    delete from trackers where slug like 'sample-%';
+-- Re-running this file after deleting them brings them back.
+-- ---------------------------------------------------------------------
+do $$
+declare
+  owner_email text := 'raanginrajasthan@gmail.com';
+  r record;
+  tid uuid;
+begin
+  for r in select * from (values
+      ('sample-morning-routine', 'Morning Routine', 'Small daily habits for a great start', 'checklist', 'candy', 'sun'),
+      ('sample-fitness-30', '30-Day Fitness', 'Move every day, get stronger every week', 'checklist', 'neon', 'dumbbell'),
+      ('sample-learn-spanish', 'Learn Spanish in 8 Weeks', 'From hola to a first real conversation', 'timeline', 'ocean', 'globe'),
+      ('sample-treehouse', 'Build a Treehouse', 'A family build, chapter by chapter', 'quest', 'forest', 'tree'),
+      ('sample-guitar-quest', 'Guitar Quest', 'From first chord to first song', 'quest', 'rpg', 'music'),
+      ('sample-weekly-chores', 'Weekly Chores', 'Jobs that reset every Monday', 'checklist', 'minimal', 'home')
+    ) v(slug, name, description, layout, theme, icon)
+  loop
+    perform public.pt__seed_tracker(r.slug, r.name, r.description, owner_email, r.layout, r.theme, r.icon, false);
+  end loop;
+
+  -- Groups first so tasks can find their parent.
+  for r in select * from (values
+      -- slug, key, parent key, kind, title, xp, difficulty, repeat, order, week, time estimate
+      ('sample-morning-routine', 'wake', null::text, 'section', 'Wake up', 0, null::text, 'none', 10, null::int, null::text),
+      ('sample-morning-routine', 'water', 'wake', 'task', 'Drink a glass of water', 5, 'easy', 'daily', 10, null, null),
+      ('sample-morning-routine', 'bed', 'wake', 'task', 'Make your bed', 5, 'easy', 'daily', 20, null, null),
+      ('sample-morning-routine', 'stretch', 'wake', 'task', 'Stretch for 5 minutes', 10, 'easy', 'daily', 30, null, null),
+      ('sample-morning-routine', 'ready', null, 'section', 'Get ready', 0, null, 'none', 20, null, null),
+      ('sample-morning-routine', 'teeth', 'ready', 'task', 'Brush your teeth', 5, 'easy', 'daily', 10, null, null),
+      ('sample-morning-routine', 'dress', 'ready', 'task', 'Get dressed', 5, 'easy', 'daily', 20, null, null),
+      ('sample-morning-routine', 'bag', 'ready', 'task', 'Pack your school bag', 10, 'medium', 'daily', 30, null, null),
+      ('sample-morning-routine', 'bonus', null, 'section', 'Bonus', 0, null, 'none', 30, null, null),
+      ('sample-morning-routine', 'read', 'bonus', 'task', 'Read for 10 minutes', 15, 'medium', 'daily', 10, null, null),
+      ('sample-morning-routine', 'breakfast', 'bonus', 'task', 'Help make breakfast', 15, 'medium', 'weekly', 20, null, null),
+      ('sample-morning-routine', 'early', 'bonus', 'task', 'Be ready 10 minutes early five days in a row', 50, 'hard', 'none', 30, null, null),
+
+      ('sample-fitness-30', 'cardio', null, 'section', 'Cardio', 0, null, 'none', 10, null, null),
+      ('sample-fitness-30', 'walk', 'cardio', 'task', '20-minute walk', 10, 'easy', 'daily', 10, null, null),
+      ('sample-fitness-30', 'jacks', 'cardio', 'task', '100 jumping jacks', 10, 'easy', 'daily', 20, null, null),
+      ('sample-fitness-30', 'run', 'cardio', 'task', 'Run 2 km', 25, 'medium', 'weekly', 30, null, null),
+      ('sample-fitness-30', 'strength', null, 'section', 'Strength', 0, null, 'none', 20, null, null),
+      ('sample-fitness-30', 'pushups', 'strength', 'task', '3 sets of push-ups', 15, 'medium', 'daily', 10, null, null),
+      ('sample-fitness-30', 'squats', 'strength', 'task', '3 sets of squats', 15, 'medium', 'daily', 20, null, null),
+      ('sample-fitness-30', 'recovery', null, 'section', 'Recovery', 0, null, 'none', 30, null, null),
+      ('sample-fitness-30', 'stretch', 'recovery', 'task', '10-minute stretch', 10, 'easy', 'daily', 10, null, null),
+      ('sample-fitness-30', 'sleep', 'recovery', 'task', '8 hours of sleep', 10, 'easy', 'daily', 20, null, null),
+      ('sample-fitness-30', 'rest', 'recovery', 'task', 'Take a full rest day', 15, 'easy', 'weekly', 30, null, null),
+      ('sample-fitness-30', 'boss', null, 'section', 'Challenges', 0, null, 'none', 40, null, null),
+      ('sample-fitness-30', 'plank', 'boss', 'task', 'Hold a plank for 1 minute', 40, 'hard', 'none', 10, null, null),
+      ('sample-fitness-30', 'fifty', 'boss', 'task', '50 push-ups in one session', 60, 'hard', 'none', 20, null, null),
+      ('sample-fitness-30', 'fivek', 'boss', 'task', 'Run 5 km without stopping', 80, 'hard', 'none', 30, null, null),
+
+      ('sample-learn-spanish', 'daily', null, 'section', 'Every day', 0, null, 'none', 5, null, null),
+      ('sample-learn-spanish', 'app', 'daily', 'task', '15 minutes of app practice', 5, 'easy', 'daily', 10, null, null),
+      ('sample-learn-spanish', 'words', 'daily', 'task', 'Learn 5 new words', 5, 'easy', 'daily', 20, null, null),
+      ('sample-learn-spanish', 'w1', null, 'week', 'Sounds and greetings', 0, null, 'none', 10, 1, '3-4 hrs'),
+      ('sample-learn-spanish', 'w2', null, 'week', 'Numbers, days and dates', 0, null, 'none', 20, 2, '3-4 hrs'),
+      ('sample-learn-spanish', 'w3', null, 'week', 'Food and ordering', 0, null, 'none', 30, 3, '3-4 hrs'),
+      ('sample-learn-spanish', 'w4', null, 'week', 'Family and describing people', 0, null, 'none', 40, 4, '3-4 hrs'),
+      ('sample-learn-spanish', 'm1', null, 'divider', 'Milestone: you can introduce yourself', 0, null, 'none', 45, 4, null),
+      ('sample-learn-spanish', 'w5', null, 'week', 'Present tense verbs', 0, null, 'none', 50, 5, '4-5 hrs'),
+      ('sample-learn-spanish', 'w6', null, 'week', 'Getting around town', 0, null, 'none', 60, 6, '4-5 hrs'),
+      ('sample-learn-spanish', 'w7', null, 'week', 'Past tense basics', 0, null, 'none', 70, 7, '4-5 hrs'),
+      ('sample-learn-spanish', 'w8', null, 'week', 'Your first real conversation', 0, null, 'none', 80, 8, '4-5 hrs'),
+      ('sample-learn-spanish', 'm2', null, 'divider', 'Milestone: first conversation done', 0, null, 'none', 85, 8, null),
+      ('sample-learn-spanish', 'w1a', 'w1', 'task', 'Learn the alphabet and vowel sounds', 15, 'easy', 'none', 10, null, null),
+      ('sample-learn-spanish', 'w1b', 'w1', 'task', 'Practise 10 greetings out loud', 15, 'easy', 'none', 20, null, null),
+      ('sample-learn-spanish', 'w1c', 'w1', 'task', 'Introduce yourself in 3 sentences', 25, 'medium', 'none', 30, null, null),
+      ('sample-learn-spanish', 'w2a', 'w2', 'task', 'Count to 100', 15, 'easy', 'none', 10, null, null),
+      ('sample-learn-spanish', 'w2b', 'w2', 'task', 'Say the days of the week and the months', 15, 'easy', 'none', 20, null, null),
+      ('sample-learn-spanish', 'w2c', 'w2', 'task', 'Say today''s date in Spanish', 25, 'medium', 'none', 30, null, null),
+      ('sample-learn-spanish', 'w3a', 'w3', 'task', 'Learn 30 food words', 25, 'medium', 'none', 10, null, null),
+      ('sample-learn-spanish', 'w3b', 'w3', 'task', 'Role-play ordering at a cafe', 25, 'medium', 'none', 20, null, null),
+      ('sample-learn-spanish', 'w3c', 'w3', 'task', 'Write a shopping list in Spanish', 15, 'easy', 'none', 30, null, null),
+      ('sample-learn-spanish', 'w4a', 'w4', 'task', 'Describe your family in 5 sentences', 25, 'medium', 'none', 10, null, null),
+      ('sample-learn-spanish', 'w4b', 'w4', 'task', 'Learn 20 adjectives', 25, 'medium', 'none', 20, null, null),
+      ('sample-learn-spanish', 'w4c', 'w4', 'task', 'Record a 1-minute introduction', 40, 'hard', 'none', 30, null, null),
+      ('sample-learn-spanish', 'w5a', 'w5', 'task', 'Conjugate 10 regular -ar verbs', 25, 'medium', 'none', 10, null, null),
+      ('sample-learn-spanish', 'w5b', 'w5', 'task', 'Learn when to use ser and estar', 40, 'hard', 'none', 20, null, null),
+      ('sample-learn-spanish', 'w5c', 'w5', 'task', 'Write 10 sentences about your day', 25, 'medium', 'none', 30, null, null),
+      ('sample-learn-spanish', 'w6a', 'w6', 'task', 'Learn left, right, straight on and near', 15, 'easy', 'none', 10, null, null),
+      ('sample-learn-spanish', 'w6b', 'w6', 'task', 'Ask for directions in a role-play', 25, 'medium', 'none', 20, null, null),
+      ('sample-learn-spanish', 'w6c', 'w6', 'task', 'Plan a trip around a town map in Spanish', 25, 'medium', 'none', 30, null, null),
+      ('sample-learn-spanish', 'w7a', 'w7', 'task', 'Learn the past tense of 10 verbs', 40, 'hard', 'none', 10, null, null),
+      ('sample-learn-spanish', 'w7b', 'w7', 'task', 'Tell someone what you did yesterday', 25, 'medium', 'none', 20, null, null),
+      ('sample-learn-spanish', 'w7c', 'w7', 'task', 'Watch a short video in Spanish', 15, 'easy', 'none', 30, null, null),
+      ('sample-learn-spanish', 'w8a', 'w8', 'task', 'Review all your flashcards', 25, 'medium', 'none', 10, null, null),
+      ('sample-learn-spanish', 'w8b', 'w8', 'task', 'Have a 5-minute conversation', 40, 'hard', 'none', 20, null, null),
+      ('sample-learn-spanish', 'w8c', 'w8', 'task', 'Write a short postcard', 25, 'medium', 'none', 30, null, null),
+
+      ('sample-treehouse', 'plan', null, 'phase', 'Draw the plans', 0, null, 'none', 10, null, null),
+      ('sample-treehouse', 'gather', null, 'phase', 'Gather supplies', 0, null, 'none', 20, null, null),
+      ('sample-treehouse', 'build', null, 'phase', 'Build the frame', 0, null, 'none', 30, null, null),
+      ('sample-treehouse', 'finish', null, 'phase', 'Finishing touches', 0, null, 'none', 40, null, null),
+      ('sample-treehouse', 'tree', 'plan', 'task', 'Pick the tree', 15, 'easy', 'none', 10, null, null),
+      ('sample-treehouse', 'measure', 'plan', 'task', 'Measure the branches', 20, 'easy', 'none', 20, null, null),
+      ('sample-treehouse', 'sketch', 'plan', 'task', 'Sketch the design', 30, 'medium', 'none', 30, null, null),
+      ('sample-treehouse', 'safety', 'plan', 'task', 'Ask a grown-up to check it is safe', 25, 'easy', 'none', 40, null, null),
+      ('sample-treehouse', 'list', 'gather', 'task', 'List the wood and tools needed', 20, 'easy', 'none', 10, null, null),
+      ('sample-treehouse', 'shop', 'gather', 'task', 'Visit the hardware store', 25, 'medium', 'none', 20, null, null),
+      ('sample-treehouse', 'gear', 'gather', 'task', 'Collect gloves and goggles', 15, 'easy', 'none', 30, null, null),
+      ('sample-treehouse', 'platform', 'build', 'task', 'Build the platform', 50, 'hard', 'none', 10, null, null),
+      ('sample-treehouse', 'rails', 'build', 'task', 'Add the railings', 40, 'hard', 'none', 20, null, null),
+      ('sample-treehouse', 'ladder', 'build', 'task', 'Fix the ladder', 40, 'hard', 'none', 30, null, null),
+      ('sample-treehouse', 'paint', 'finish', 'task', 'Paint it', 30, 'medium', 'none', 10, null, null),
+      ('sample-treehouse', 'sign', 'finish', 'task', 'Make a name sign', 20, 'easy', 'none', 20, null, null),
+      ('sample-treehouse', 'picnic', 'finish', 'task', 'Have a treehouse picnic', 50, 'easy', 'none', 30, null, null),
+
+      ('sample-guitar-quest', 'act1', null, 'phase', 'Act I: The Apprentice', 0, null, 'none', 10, null, null),
+      ('sample-guitar-quest', 'act2', null, 'phase', 'Act II: The Journeyman', 0, null, 'none', 20, null, null),
+      ('sample-guitar-quest', 'act3', null, 'phase', 'Act III: The Bard', 0, null, 'none', 30, null, null),
+      ('sample-guitar-quest', 'practice', 'act1', 'task', 'Practise for 15 minutes', 10, 'easy', 'daily', 5, null, null),
+      ('sample-guitar-quest', 'parts', 'act1', 'task', 'Learn the parts of the guitar', 10, 'easy', 'none', 10, null, null),
+      ('sample-guitar-quest', 'tune', 'act1', 'task', 'Tune the guitar', 15, 'easy', 'none', 20, null, null),
+      ('sample-guitar-quest', 'minor', 'act1', 'task', 'Play E minor and A minor', 25, 'medium', 'none', 30, null, null),
+      ('sample-guitar-quest', 'chords', 'act2', 'task', 'Learn C, G and D chords', 40, 'hard', 'none', 10, null, null),
+      ('sample-guitar-quest', 'switch', 'act2', 'task', 'Switch chords in time with a metronome', 40, 'hard', 'none', 20, null, null),
+      ('sample-guitar-quest', 'strum', 'act2', 'task', 'Learn a strumming pattern', 25, 'medium', 'none', 30, null, null),
+      ('sample-guitar-quest', 'song', 'act3', 'task', 'Learn a full song', 60, 'hard', 'none', 10, null, null),
+      ('sample-guitar-quest', 'perform', 'act3', 'task', 'Play it for someone', 50, 'hard', 'none', 20, null, null),
+      ('sample-guitar-quest', 'record', 'act3', 'task', 'Record yourself playing', 30, 'medium', 'none', 30, null, null),
+
+      ('sample-weekly-chores', 'kitchen', null, 'section', 'Kitchen', 0, null, 'none', 10, null, null),
+      ('sample-weekly-chores', 'dishes', 'kitchen', 'task', 'Empty the dishwasher', 10, 'easy', 'weekly', 10, null, null),
+      ('sample-weekly-chores', 'counters', 'kitchen', 'task', 'Wipe the counters', 10, 'easy', 'weekly', 20, null, null),
+      ('sample-weekly-chores', 'recycling', 'kitchen', 'task', 'Take out the recycling', 10, 'easy', 'weekly', 30, null, null),
+      ('sample-weekly-chores', 'bedroom', null, 'section', 'Bedroom', 0, null, 'none', 20, null, null),
+      ('sample-weekly-chores', 'tidy', 'bedroom', 'task', 'Tidy your room', 15, 'medium', 'weekly', 10, null, null),
+      ('sample-weekly-chores', 'sheets', 'bedroom', 'task', 'Change the bed sheets', 15, 'medium', 'weekly', 20, null, null),
+      ('sample-weekly-chores', 'laundry', 'bedroom', 'task', 'Put your laundry away', 10, 'easy', 'weekly', 30, null, null),
+      ('sample-weekly-chores', 'outside', null, 'section', 'Outside', 0, null, 'none', 30, null, null),
+      ('sample-weekly-chores', 'plants', 'outside', 'task', 'Water the plants', 10, 'easy', 'weekly', 10, null, null),
+      ('sample-weekly-chores', 'sweep', 'outside', 'task', 'Sweep the porch', 15, 'medium', 'weekly', 20, null, null),
+      ('sample-weekly-chores', 'car', 'outside', 'task', 'Help wash the car', 25, 'medium', 'weekly', 30, null, null)
+    ) v(slug, key, parent, kind, title, xp, difficulty, rep, ord, week, est)
+    order by (v.kind = 'task')
+  loop
+    tid := (select id from public.trackers where slug = r.slug);
+    perform public.pt__seed_node(tid, r.slug || ':' || r.key,
+      case when r.parent is null then null else r.slug || ':' || r.parent end,
+      r.kind, r.title, r.xp, r.difficulty, r.week, r.est, r.ord, null, r.rep);
+  end loop;
+
+  for r in select * from (values
+      ('sample-learn-spanish', 'w1', 'Duolingo', 'https://www.duolingo.com/', 10),
+      ('sample-learn-spanish', 'w1', 'SpanishDict', 'https://www.spanishdict.com/', 20),
+      ('sample-learn-spanish', 'w8', 'Tandem language exchange', 'https://www.tandem.net/', 10),
+      ('sample-guitar-quest', 'act1', 'JustinGuitar beginner lessons', 'https://www.justinguitar.com/', 10)
+    ) v(slug, key, title, url, ord)
+  loop
+    tid := (select id from public.trackers where slug = r.slug);
+    perform public.pt__seed_resource(tid, r.slug || ':' || r.key, r.title, r.url, r.ord);
+  end loop;
+end $$;
+
 commit;
 
 -- =====================================================================
 -- COOKBOOK: common commands. Nothing below runs automatically.
 -- Copy one block into the SQL Editor, change the values, and run it.
+-- Step-by-step walkthroughs: docs/SQL_GUIDE.md (SQL) and
+-- docs/PORTAL_GUIDE.md (the same things from the website).
 -- =====================================================================
 
 -- ---------------------------------------------------------------------
@@ -277,9 +461,13 @@ commit;
 
 -- ---------------------------------------------------------------------
 -- 2. Let a new person log in
+--    Easiest: Settings > Manage > People tab > Add a person.
 -- ---------------------------------------------------------------------
--- They must open the home page and press "Sign in with Google" once first.
--- Then approve them (name and time zone are optional):
+-- Before they have signed in (they are approved on their first Google sign-in):
+--    insert into invites (email, display_name, timezone)
+--    values ('friend@gmail.com', 'Friend Name', 'Asia/Kolkata');
+--
+-- After they have pressed "Sign in with Google" once:
 --    select pt_admin_approve_user('friend@gmail.com', 'Friend Name', 'Asia/Kolkata');
 --
 -- Approved people can log in but see no trackers until you give access (step 3).
@@ -305,18 +493,22 @@ commit;
 
 -- ---------------------------------------------------------------------
 -- 4. Create a new tracker (you become its owner)
+--    Easiest: Manage page > New tracker (can also copy an existing one).
 -- ---------------------------------------------------------------------
--- Arguments in order: slug, name, description, owner email,
---   'standard', page (null = generic page), icon, needs approval?, can untick?
--- Icons: target, gamepad, briefcase, book, star, heart, code, trophy, zap, users
+-- Arguments in order: slug, name, description, owner email, layout, theme, icon, needs approval?
+-- Layouts: checklist, timeline, quest
+-- Themes:  minimal, rpg, neon, ocean, forest, candy
+-- Icons:   target, gamepad, briefcase, book, star, heart, code, trophy, zap, users,
+--          sun, music, dumbbell, globe, tree, home
 --
 -- Normal tracker for yourself:
---    select pt_admin_create_tracker('reading', 'Reading Habit', 'Read 12 books this year',
---      'raanginrajasthan@gmail.com', 'standard', null, 'book', false, true);
+--    select pt__seed_tracker('reading', 'Reading Habit', 'Read 12 books this year',
+--      'raanginrajasthan@gmail.com', 'checklist', 'minimal', 'book', false);
 --
--- Tracker for a child, where you approve their ticks before XP is given:
---    select pt_admin_create_tracker('arjun-goals', 'Arjun''s Goals', 'Homework, reading and chores',
---      'raanginrajasthan@gmail.com', 'standard', null, 'star', true, true);
+-- Tracker for a child. XP is given as soon as they tick a task and shows as
+-- "pending review"; if you reject it, the XP is taken back:
+--    select pt__seed_tracker('arjun-goals', 'Arjun''s Goals', 'Homework, reading and chores',
+--      'raanginrajasthan@gmail.com', 'quest', 'candy', 'star', true);
 --    select pt_admin_grant('arjun-goals', 'arjun@gmail.com', 'member', true);
 
 -- ---------------------------------------------------------------------
@@ -328,6 +520,7 @@ commit;
 --             'task'   = something you tick off and earn XP for
 -- xp:         points for finishing the task (groups always use 0)
 -- difficulty: 'easy', 'medium', 'hard' or null
+-- repeat:     'none' (tick once), 'daily' or 'weekly' (resets every day / every Monday)
 -- sort_order: position in the list, lowest first (use 10, 20, 30 to leave gaps)
 --
 -- Step A: add two groups:
@@ -352,6 +545,10 @@ commit;
 -- A single task with no group (shows at the top level):
 --    insert into tasks (tracker_id, kind, title, xp, difficulty, sort_order)
 --    select id, 'task', 'Join a book club', 25, 'medium', 5 from trackers where slug = 'reading';
+--
+-- A task that resets every day:
+--    insert into tasks (tracker_id, kind, title, xp, difficulty, repeat, sort_order)
+--    select id, 'task', 'Read for 20 minutes', 10, 'easy', 'daily', 1 from trackers where slug = 'reading';
 --
 -- A link shown under a group:
 --    insert into task_resources (task_id, title, url, sort_order)
@@ -396,3 +593,27 @@ commit;
 -- 8. One-time: bring over progress from the old Godot page (keeps level and XP)
 -- ---------------------------------------------------------------------
 --    select pt_admin_migrate_legacy('godot');
+
+-- ---------------------------------------------------------------------
+-- 9. Change how a tracker looks (also on the Manage page > Settings)
+-- ---------------------------------------------------------------------
+--    update trackers set layout = 'quest', theme = 'forest' where slug = 'reading';
+
+-- ---------------------------------------------------------------------
+-- 10. Sample trackers
+-- ---------------------------------------------------------------------
+-- Delete all samples (their ticks and XP go too):
+--    delete from trackers where slug like 'sample-%';
+--
+-- Keep one sample by renaming its slug first, e.g.:
+--    update trackers set slug = 'chores' where slug = 'sample-weekly-chores';
+
+-- ---------------------------------------------------------------------
+-- 11. People
+-- ---------------------------------------------------------------------
+-- Make someone else a site admin (can add people from the portal):
+--    update users set is_admin = true where email = 'partner@gmail.com';
+--
+-- Remove a person (keeps their history; approve again to restore):
+--    delete from tracker_access where user_id = (select id from users where email = 'friend@gmail.com');
+--    delete from users where email = 'friend@gmail.com';

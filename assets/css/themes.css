@@ -1,0 +1,226 @@
+/*
+ * Tracker themes. pages/tracker.html sets <html data-theme="..."> from trackers.theme.
+ * To add a theme: copy one block, change the name and colours, and add it to
+ * THEMES in assets/js/app.js so it appears on the Manage page.
+ */
+
+:root,
+html[data-theme="minimal"] {
+  color-scheme: light;
+  --pt-bg: #f5f1e8;
+  --pt-bg-image: none;
+  --pt-surface: #ffffff;
+  --pt-surface-2: #faf7f0;
+  --pt-fg: #2d2d2d;
+  --pt-muted: #6b6b6b;
+  --pt-border: #e8dfd6;
+  --pt-accent: #00a96b;
+  --pt-accent-2: #00d084;
+  --pt-on-accent: #ffffff;
+  --pt-hover: #f0ebe1;
+  --pt-danger: #b91c1c;
+  --pt-gold: #b7791f;
+  --pt-good: #00a96b;
+  --pt-pending: #a16207;
+  --pt-track: #ece6da;
+  --pt-fill: var(--pt-accent);
+  --pt-radius: 10px;
+  --pt-check-radius: 6px;
+  --pt-font-head: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;
+  --pt-font-body: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;
+  --pt-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
+  --pt-glow: none;
+}
+
+html[data-theme="rpg"] {
+  color-scheme: dark;
+  --pt-bg: #14100c;
+  --pt-bg-image: radial-gradient(900px 500px at 50% -10%, rgba(201, 162, 39, 0.16), transparent 65%);
+  --pt-surface: #1f1812;
+  --pt-surface-2: #2a2018;
+  --pt-fg: #f3e6c8;
+  --pt-muted: #b8a37e;
+  --pt-border: #5a4526;
+  --pt-accent: #c9a227;
+  --pt-accent-2: #e8c55a;
+  --pt-on-accent: #1a1206;
+  --pt-hover: #2d2318;
+  --pt-danger: #e0644f;
+  --pt-gold: #e8c55a;
+  --pt-good: #8fbf5a;
+  --pt-pending: #facc15;
+  --pt-track: #33281c;
+  --pt-fill: linear-gradient(90deg, #a8801a, #e8c55a);
+  --pt-radius: 6px;
+  --pt-check-radius: 3px;
+  --pt-font-head: Georgia, 'Palatino Linotype', 'Book Antiqua', serif;
+  --pt-shadow: 0 6px 18px rgba(0, 0, 0, 0.45);
+  --pt-glow: 0 0 18px rgba(201, 162, 39, 0.25);
+}
+
+html[data-theme="neon"] {
+  color-scheme: dark;
+  --pt-bg: #0a0e27;
+  --pt-bg-image: radial-gradient(800px 420px at 0% 0%, rgba(255, 0, 110, 0.18), transparent 60%), radial-gradient(700px 400px at 100% 10%, rgba(0, 217, 255, 0.14), transparent 60%);
+  --pt-surface: #12173a;
+  --pt-surface-2: #181f4a;
+  --pt-fg: #e8ecff;
+  --pt-muted: #8a93c9;
+  --pt-border: #2a3270;
+  --pt-accent: #ff006e;
+  --pt-accent-2: #00d9ff;
+  --pt-on-accent: #ffffff;
+  --pt-hover: #1b2255;
+  --pt-danger: #ff4d6d;
+  --pt-gold: #ffd60a;
+  --pt-good: #00f5a0;
+  --pt-pending: #facc15;
+  --pt-track: #1b2255;
+  --pt-fill: linear-gradient(90deg, #ff006e, #00d9ff);
+  --pt-radius: 12px;
+  --pt-check-radius: 6px;
+  --pt-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+  --pt-glow: 0 0 18px rgba(255, 0, 110, 0.35);
+}
+
+html[data-theme="ocean"] {
+  color-scheme: light;
+  --pt-bg: #eef7fc;
+  --pt-bg-image: linear-gradient(180deg, #dff0fa 0, rgba(238, 247, 252, 0) 360px);
+  --pt-surface: #ffffff;
+  --pt-surface-2: #f4fafe;
+  --pt-fg: #0c2a3e;
+  --pt-muted: #4f6f84;
+  --pt-border: #cfe6f3;
+  --pt-accent: #0284c7;
+  --pt-accent-2: #06b6d4;
+  --pt-on-accent: #ffffff;
+  --pt-hover: #e3f2fa;
+  --pt-danger: #dc2626;
+  --pt-gold: #b45309;
+  --pt-good: #059669;
+  --pt-pending: #a16207;
+  --pt-track: #dbeef8;
+  --pt-fill: linear-gradient(90deg, #0284c7, #06b6d4);
+  --pt-radius: 14px;
+  --pt-check-radius: 50%;
+  --pt-shadow: 0 4px 14px rgba(2, 132, 199, 0.08);
+  --pt-glow: 0 0 0 4px rgba(2, 132, 199, 0.08);
+}
+
+html[data-theme="forest"] {
+  color-scheme: dark;
+  --pt-bg: #0f1a12;
+  --pt-bg-image: radial-gradient(900px 480px at 80% -10%, rgba(76, 175, 80, 0.16), transparent 60%);
+  --pt-surface: #16251a;
+  --pt-surface-2: #1c2f21;
+  --pt-fg: #e6f2e3;
+  --pt-muted: #9bb79a;
+  --pt-border: #2c4a32;
+  --pt-accent: #4caf50;
+  --pt-accent-2: #d4b44a;
+  --pt-on-accent: #08160b;
+  --pt-hover: #1f3524;
+  --pt-danger: #ef6b5b;
+  --pt-gold: #d4b44a;
+  --pt-good: #6fcf73;
+  --pt-pending: #facc15;
+  --pt-track: #213a27;
+  --pt-fill: linear-gradient(90deg, #4caf50, #d4b44a);
+  --pt-radius: 12px;
+  --pt-check-radius: 6px;
+  --pt-shadow: 0 6px 18px rgba(0, 0, 0, 0.35);
+  --pt-glow: 0 0 16px rgba(76, 175, 80, 0.25);
+}
+
+html[data-theme="candy"] {
+  color-scheme: light;
+  --pt-bg: #fff3f9;
+  --pt-bg-image: radial-gradient(700px 380px at 0% 0%, rgba(255, 92, 168, 0.16), transparent 60%), radial-gradient(700px 380px at 100% 0%, rgba(164, 107, 255, 0.14), transparent 60%);
+  --pt-surface: #ffffff;
+  --pt-surface-2: #fff7fb;
+  --pt-fg: #4a2340;
+  --pt-muted: #9a6b8c;
+  --pt-border: #ffd3ea;
+  --pt-accent: #ff5ca8;
+  --pt-accent-2: #a46bff;
+  --pt-on-accent: #ffffff;
+  --pt-hover: #ffe9f4;
+  --pt-danger: #e11d48;
+  --pt-gold: #d97706;
+  --pt-good: #10b981;
+  --pt-pending: #a16207;
+  --pt-track: #ffe1ef;
+  --pt-fill: linear-gradient(90deg, #ff5ca8, #a46bff);
+  --pt-radius: 22px;
+  --pt-check-radius: 50%;
+  --pt-font-head: 'Trebuchet MS', 'Segoe UI', 'Roboto', sans-serif;
+  --pt-font-body: 'Trebuchet MS', 'Segoe UI', 'Roboto', sans-serif;
+  --pt-shadow: 0 6px 18px rgba(255, 92, 168, 0.12);
+  --pt-glow: 0 0 0 4px rgba(255, 92, 168, 0.12);
+}
+
+/* ---------- Theme flourishes ---------- */
+
+html[data-theme="rpg"] .card {
+  border: 3px double var(--pt-border);
+  box-shadow: inset 0 0 0 1px rgba(201, 162, 39, 0.12), var(--pt-shadow);
+}
+
+html[data-theme="rpg"] h1,
+html[data-theme="rpg"] .chapter-label,
+html[data-theme="rpg"] .rank {
+  letter-spacing: 0.04em;
+}
+
+html[data-theme="rpg"] h1 {
+  color: var(--pt-gold);
+  text-shadow: 0 2px 0 rgba(0, 0, 0, 0.5);
+}
+
+html[data-theme="rpg"] .chapter.current {
+  border-color: var(--pt-accent);
+  box-shadow: inset 0 0 0 1px rgba(232, 197, 90, 0.35), var(--pt-glow);
+}
+
+html[data-theme="rpg"] .task-check:checked {
+  box-shadow: 0 0 10px rgba(232, 197, 90, 0.5);
+}
+
+html[data-theme="neon"] h1 {
+  text-shadow: 0 0 12px rgba(255, 0, 110, 0.6), 0 0 28px rgba(0, 217, 255, 0.35);
+}
+
+html[data-theme="neon"] .card {
+  box-shadow: 0 0 0 1px rgba(0, 217, 255, 0.06), var(--pt-shadow);
+}
+
+html[data-theme="neon"] .bar > .fill,
+html[data-theme="neon"] .task-check:checked {
+  box-shadow: 0 0 12px rgba(255, 0, 110, 0.6);
+}
+
+html[data-theme="candy"] .task-check {
+  width: 28px;
+  height: 28px;
+}
+
+html[data-theme="candy"] .task-check:checked {
+  background: linear-gradient(135deg, #ff5ca8, #a46bff);
+  border-color: transparent;
+}
+
+html[data-theme="candy"] h1 {
+  background: linear-gradient(90deg, #ff5ca8, #a46bff);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+html[data-theme="forest"] .chapter-label {
+  color: var(--pt-gold);
+}
+
+html[data-theme="ocean"] .week-num {
+  border-radius: 50%;
+}

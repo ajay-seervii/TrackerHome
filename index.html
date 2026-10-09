@@ -66,10 +66,13 @@
     .rank { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.1em; color: var(--gold); }
     .rank .pt-icon { width: 14px; height: 14px; }
     .player h1 { font-size: 22px; line-height: 1.2; letter-spacing: 0; margin: 2px 0 10px; overflow-wrap: anywhere; }
-    .xpbar { height: 12px; border-radius: 999px; background: rgba(255, 255, 255, 0.08); overflow: hidden; }
-    .xpbar > div { height: 100%; border-radius: 999px; background: linear-gradient(90deg, var(--gold), #ff9f43); box-shadow: 0 0 12px rgba(255, 200, 71, 0.6); transition: width 0.8s cubic-bezier(0.2, 0.8, 0.2, 1); }
+    .xpbar { display: flex; height: 12px; border-radius: 999px; background: rgba(255, 255, 255, 0.08); overflow: hidden; }
+    .xpbar > div { height: 100%; background: linear-gradient(90deg, var(--gold), #ff9f43); box-shadow: 0 0 12px rgba(255, 200, 71, 0.6); transition: width 0.8s cubic-bezier(0.2, 0.8, 0.2, 1); }
+    .xpbar > .xp-pending { box-shadow: none; }
     .xpmeta { display: flex; justify-content: space-between; gap: 8px; flex-wrap: wrap; margin-top: 6px; font-size: 12px; color: var(--pt-muted); }
     .xpmeta strong { color: var(--pt-fg); }
+    .pending-line { display: inline-flex; align-items: center; gap: 4px; margin-top: 4px; font-size: 12px; font-weight: 700; color: #facc15; }
+    .pending-line .pt-icon { width: 14px; height: 14px; }
 
     /* Stats */
     .stats { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
@@ -139,6 +142,12 @@
     .badge-desc { font-size: 11px; color: var(--pt-muted); line-height: 1.2; }
     .badge.locked .badge-icon { background: var(--pt-hover); color: var(--pt-muted); box-shadow: none; }
     .badge.locked .badge-name { color: var(--pt-muted); }
+    .badge-pending { display: inline-flex; align-items: center; gap: 3px; padding: 1px 6px; border-radius: 999px; background: rgba(250, 204, 21, 0.15); color: #facc15; font-size: 10px; font-weight: 800; }
+    .badge-pending .pt-icon { width: 11px; height: 11px; }
+    .reject-form { display: flex; flex-wrap: wrap; gap: 6px; width: 100%; }
+    #approvals-list li { flex-wrap: wrap; }
+    .reject-form input { flex: 1 1 200px; min-height: 40px; padding: 8px 12px; border: 1px solid var(--pt-border); border-radius: 10px; background: var(--pt-bg); color: var(--pt-fg); font: inherit; font-size: 14px; }
+    .reject-form .pt-btn { min-height: 40px; padding: 8px 12px; }
 
     /* Lists */
     .list { list-style: none; display: flex; flex-direction: column; }
@@ -211,8 +220,9 @@
         <div class="player-info">
           <span class="rank" id="rank"></span>
           <h1 id="greeting"></h1>
-          <div class="xpbar" role="progressbar" aria-label="Progress to next level" aria-valuemin="0" aria-valuemax="100" id="xpbar"><div id="xpfill" style="width: 0%"></div></div>
+          <div class="xpbar" role="progressbar" aria-label="Progress to next level" aria-valuemin="0" aria-valuemax="100" id="xpbar"><div id="xpfill" style="width: 0%"></div><div id="xppend" class="xp-pending pt-pending-stripes" style="width: 0%"></div></div>
           <div class="xpmeta"><span id="xp-into"></span><span id="xp-total"></span></div>
+          <div class="pending-line" id="xp-pending" hidden></div>
         </div>
       </section>
 
@@ -274,13 +284,26 @@
   <script src="assets/js/app.js"></script>
   <script>
     const ACHIEVEMENT_NAMES = { a1: 'Started', a2: 'Player', a3: 'Combat', a4: 'Polish', a5: 'Quarter', a6: 'Master' };
-    const REASON_LABELS = { task: 'Task completed', achievement: 'Achievement', legacy_balance: 'Earlier progress', refund: 'Task unchecked', reset: 'Tracker reset', adjustment: 'Adjustment' };
+    const REASON_LABELS = { task: 'Task completed', achievement: 'Achievement', legacy_balance: 'Earlier progress', refund: 'Task unchecked', reset: 'Tracker reset', adjustment: 'Adjustment', rejected: 'Sent back by reviewer' };
     const params = new URLSearchParams(location.search);
     const next = PT.safeNext(params.get('next'));
     const $ = id => document.getElementById(id);
     const DAILY_GOAL = 50;
-    const RANKS = [[1, 'Novice'], [3, 'Apprentice'], [5, 'Adventurer'], [8, 'Veteran'], [12, 'Champion'], [16, 'Master'], [20, 'Legend']];
     const COLORS = ['#8b5cf6', '#38bdf8', '#34d399', '#ff8a3d', '#ff5ca8', '#ffc847'];
+    const rankFor = PT.rankFor;
+
+    // How much of a badge's value comes from ticks still waiting for review.
+    function pendingPart(badge, data) {
+      const t = badge.tracker_id && data.trackers.find(x => x.id === badge.tracker_id);
+      switch (badge.metric) {
+        case 'tasks_done': return Number(data.pending_count) || 0;
+        case 'life_xp': return Number(data.pending_xp) || 0;
+        case 'today_xp': return Number(data.today_pending_xp) || 0;
+        case 'tracker_tasks_done': return t ? Number(t.my_pending) || 0 : 0;
+        case 'tracker_xp': return t ? Number(t.pending_xp) || 0 : 0;
+        default: return 0;
+      }
+    }
 
     function badgeValue(badge, data, level) {
       const t = badge.tracker_id && data.trackers.find(x => x.id === badge.tracker_id);
@@ -300,12 +323,6 @@
 
     function heading(id, iconName, text, count) {
       $(id).innerHTML = PT.icon(iconName) + `<span>${PT.esc(text)}</span>` + (count ? `<span class="count">${PT.esc(count)}</span>` : '');
-    }
-
-    function rankFor(level) {
-      let rank = RANKS[0][1];
-      RANKS.forEach(([min, name]) => { if (level >= min) rank = name; });
-      return rank;
     }
 
     function iconOf(t) {
@@ -347,7 +364,7 @@
       document.getElementById('welcome').hidden = false;
       document.getElementById('welcome-mark').innerHTML = PT.icon('clock');
       document.querySelector('#welcome h1').textContent = 'Waiting for approval';
-      document.querySelector('#welcome p').textContent = `You are signed in as ${email || 'an unknown account'}. Ask the tracker owner to approve this account, then reload.`;
+      document.querySelector('#welcome p').textContent = `You are signed in as ${email || 'an unknown account'}. Ask the site admin to add this email, then reload.`;
       const actions = document.getElementById('welcome-actions');
       actions.innerHTML = '';
       actions.appendChild(PT.button('Sign out', 'log-out', PT.signOut));
@@ -361,10 +378,16 @@
       $('ring').style.setProperty('--pct', life.pct.toFixed(1));
       $('rank').innerHTML = PT.icon('crown') + PT.esc(rankFor(life.level));
       $('greeting').textContent = name;
-      $('xpfill').style.width = life.pct + '%';
+      const pending = Math.max(0, Number(data.pending_xp) || 0);
+      // Only the part of pending XP inside the current level is drawn striped.
+      const pendingPct = Math.min(life.pct, (pending / life.needed) * 100);
+      $('xpfill').style.width = (life.pct - pendingPct) + '%';
+      $('xppend').style.width = pendingPct + '%';
       $('xpbar').setAttribute('aria-valuenow', Math.round(life.pct));
       $('xp-into').innerHTML = `<strong>${life.into.toLocaleString()}</strong> / ${life.needed.toLocaleString()} XP to LV ${life.level + 1}`;
       $('xp-total').textContent = `${Number(data.life_xp).toLocaleString()} total XP`;
+      $('xp-pending').hidden = !pending;
+      $('xp-pending').innerHTML = pending ? `${PT.icon('clock')}${pending.toLocaleString()} XP pending review. It is removed if sent back.` : '';
       return life;
     }
 
@@ -380,7 +403,8 @@
       $('goal').classList.toggle('done', hit);
       $('goal').innerHTML = PT.icon(hit ? 'check' : 'target');
       $('today-xp').textContent = today;
-      $('goal-label').textContent = hit ? 'daily goal hit' : `of ${DAILY_GOAL} XP today`;
+      const todayPending = Number(data.today_pending_xp) || 0;
+      $('goal-label').textContent = (hit ? 'daily goal hit' : `of ${DAILY_GOAL} XP today`) + (todayPending ? ` · ${todayPending} pending` : '');
 
       $('done-icon').innerHTML = PT.icon('check-circle');
       $('tasks-done').textContent = Number(data.tasks_done).toLocaleString();
@@ -403,7 +427,7 @@
       li.classList.add('pt-busy');
       try {
         const res = await PT.completeTask(task.id);
-        PT.toast(res.status === 'pending' ? `Sent for approval: ${task.title}` : `+${res.awarded_xp || 0} XP  ${task.title}`);
+        PT.announceCompletion(res, task.title);
         if (res.godot && res.godot.new_achievements && res.godot.new_achievements.length) PT.toast('Achievement unlocked!');
         await loadDashboard();
       } catch (error) {
@@ -427,7 +451,7 @@
           <div class="quest-icon">${PT.icon(iconOf(t))}</div>
           <div class="quest-text">
             <div class="quest-title">${PT.esc(task.title)}</div>
-            <div class="quest-sub">${PT.esc(t.name)}</div>
+            <div class="quest-sub">${PT.esc(t.name)}${task.repeat === 'daily' ? ' · Daily' : task.repeat === 'weekly' ? ' · Weekly' : ''}${t.requires_approval && t.role === 'member' ? ' · needs review' : ''}</div>
           </div>
           <span class="xp-chip">${PT.icon('zap')}+${Number(task.xp)}</span>`;
         const btn = document.createElement('button');
@@ -459,7 +483,7 @@
         const tags = [
           !isGuardian && !t.can_edit ? `<span class="tag">${PT.icon('eye')}Read only</span>` : '',
           isGuardian ? `<span class="tag">${PT.icon('shield')}Reviewer</span>` : '',
-          t.my_pending ? `<span class="tag tag--warn">${PT.icon('clock')}${t.my_pending} awaiting approval</span>` : '',
+          t.my_pending ? `<span class="tag tag--warn">${PT.icon('clock')}${t.pending_xp ? `${Number(t.pending_xp).toLocaleString()} XP pending` : `${t.my_pending} pending`}</span>` : '',
           t.to_review ? `<span class="tag tag--warn">${PT.icon('check-circle')}${t.to_review} to review</span>` : '',
         ].join('');
         const a = document.createElement('a');
@@ -480,19 +504,58 @@
     function renderBadges(data, level) {
       const badges = (data.badges || []).map(b => {
         const value = badgeValue(b, data, level);
-        return { ...b, ok: value >= b.threshold, value };
+        const ok = value >= b.threshold;
+        const confirmedLevel = PT.lifeLevel(Number(data.life_xp) - (Number(data.pending_xp) || 0)).level;
+        const confirmed = b.metric === 'level' ? confirmedLevel : value - pendingPart(b, data);
+        return { ...b, ok, value, pending: ok && confirmed < b.threshold };
       });
       const earned = badges.filter(b => b.ok).length;
       heading('badges-heading', 'award', 'Badges', `${earned} / ${badges.length}`);
       $('badges').innerHTML = badges.map(b => {
         const iconName = /^[a-z-]+$/.test(b.icon) ? b.icon : 'award';
         const progress = b.ok ? PT.esc(b.description) : `${Math.min(b.value, b.threshold).toLocaleString()} / ${Number(b.threshold).toLocaleString()}`;
-        return `<div class="badge ${b.ok ? '' : 'locked'}" title="${PT.esc(b.description)}">
+        const tip = b.pending ? `${b.description}. Pending review: lost if the ticks are sent back.` : b.description;
+        return `<div class="badge ${b.ok ? '' : 'locked'}" title="${PT.esc(tip)}">
           <div class="badge-icon">${PT.icon(b.ok ? iconName : 'lock')}</div>
           <div class="badge-name">${PT.esc(b.name)}</div>
           <div class="badge-desc">${progress}</div>
+          ${b.pending ? `<span class="badge-pending">${PT.icon('clock')}pending</span>` : ''}
         </div>`;
       }).join('');
+      return badges;
+    }
+
+    function readJson(key, fallback) {
+      try {
+        return JSON.parse(localStorage.getItem(key) || 'null') ?? fallback;
+      } catch {
+        return fallback;
+      }
+    }
+
+    // Tells the player about badge changes and reviews since their last visit.
+    function announceChanges(data, badges) {
+      const uid = PT.me.id;
+      const badgeKey = `pt-badges-${uid}`;
+      const before = readJson(badgeKey, null);
+      if (Array.isArray(before)) {
+        badges.filter(b => b.ok && !before.includes(b.slug)).forEach(b => PT.toast(`Badge earned: ${b.name}`, 'reward'));
+        badges.filter(b => !b.ok && before.includes(b.slug)).forEach(b => PT.toast(`Badge lost: ${b.name}`, 'error'));
+      }
+      localStorage.setItem(badgeKey, JSON.stringify(badges.filter(b => b.ok).map(b => b.slug)));
+
+      const pendingKey = `pt-pending-${uid}`;
+      const waiting = readJson(pendingKey, {});
+      const reviews = new Map((data.reviews || []).map(r => [r.id, r]));
+      Object.entries(waiting).forEach(([id, item]) => {
+        const review = reviews.get(id);
+        if (!review || !item) return;
+        if (review.status === 'approved') PT.toast(`Approved: +${item.xp} XP for "${item.title}" is now confirmed`, 'reward');
+        if (review.status === 'rejected') PT.toast(`Sent back: "${item.title}" (-${item.xp} XP)${review.note ? `. ${review.note}` : ''}`, 'error');
+      });
+      const nowWaiting = {};
+      (data.my_pending || []).forEach(p => { nowWaiting[p.id] = { title: p.title, xp: p.xp }; });
+      localStorage.setItem(pendingKey, JSON.stringify(nowWaiting));
     }
 
     function celebrate(level) {
@@ -542,23 +605,42 @@
           <div class="ev-icon">${PT.icon('clock')}</div>
           <div class="grow">
             <div class="title">${PT.esc(item.task_title)}</div>
-            <div class="sub">${PT.esc(item.user_name)} · ${PT.esc(item.tracker_name)} · ${relTime(item.completed_at)} · +${item.xp} XP</div>
+            <div class="sub">${PT.esc(item.user_name)} · ${PT.esc(item.tracker_name)} · ${relTime(item.completed_at)} · +${item.xp} XP already given</div>
           </div>
           <div class="approve-actions"></div>`;
         const actions = li.querySelector('.approve-actions');
-        const review = approve => async () => {
+        const review = (approve, note) => async () => {
           li.classList.add('pt-busy');
           try {
-            await PT.rpc('pt_review_completion', { p_progress: item.id, p_approve: approve });
-            PT.toast(approve ? `Approved: +${item.xp} XP for ${item.user_name}` : 'Sent back');
+            await PT.rpc('pt_review_completion', { p_progress: item.id, p_approve: approve, p_note: note || null });
+            PT.toast(approve ? `Approved: ${item.xp} XP confirmed for ${item.user_name}` : `Sent back: ${item.xp} XP removed from ${item.user_name}`);
             await loadDashboard();
           } catch (error) {
             li.classList.remove('pt-busy');
             PT.toast(error.message, 'error');
           }
         };
+        const showRejectForm = () => {
+          actions.hidden = true;
+          const form = document.createElement('form');
+          form.className = 'reject-form';
+          const input = document.createElement('input');
+          input.maxLength = 200;
+          input.placeholder = 'Reason (optional), e.g. Room still messy';
+          input.setAttribute('aria-label', `Reason for sending back ${item.task_title}`);
+          const send = PT.button('Send back', 'x', () => {}, 'pt-btn--danger pt-needs-online');
+          send.type = 'submit';
+          const cancel = PT.button('Cancel', null, () => { form.remove(); actions.hidden = false; });
+          form.append(input, send, cancel);
+          form.addEventListener('submit', event => {
+            event.preventDefault();
+            review(false, input.value.trim())();
+          });
+          li.appendChild(form);
+          input.focus();
+        };
         actions.appendChild(PT.button('Approve', 'check', review(true), 'pt-btn--primary pt-needs-online'));
-        actions.appendChild(PT.button('Reject', 'x', review(false), 'pt-needs-online'));
+        actions.appendChild(PT.button('Reject', 'x', showRejectForm, 'pt-needs-online'));
         list.appendChild(li);
       });
     }
@@ -595,14 +677,15 @@
       }
       events.forEach(e => {
         const li = document.createElement('li');
-        const iconName = e.reason === 'achievement' ? 'trophy' : e.amount < 0 ? 'rotate-ccw' : 'check-circle';
+        const iconName = e.reason === 'achievement' ? 'trophy' : e.reason === 'rejected' ? 'x' : e.amount < 0 ? 'rotate-ccw' : 'check-circle';
         const tone = e.reason === 'achievement' ? 'gold' : e.amount > 0 ? 'green' : '';
         const title = e.reason === 'achievement' ? `Achievement: ${ACHIEVEMENT_NAMES[e.note] || e.note || ''}` : (e.task_title || REASON_LABELS[e.reason] || e.reason);
+        const reason = REASON_LABELS[e.reason] || e.reason;
         li.innerHTML = `
           <div class="ev-icon ${tone}">${PT.icon(iconName)}</div>
           <div class="grow">
             <div class="title">${PT.esc(title)}</div>
-            <div class="sub">${PT.esc(e.tracker_name)} · ${PT.esc(REASON_LABELS[e.reason] || e.reason)} · ${relTime(e.created_at)}</div>
+            <div class="sub">${PT.esc(e.tracker_name)} · ${PT.esc(e.reason === 'rejected' && e.note ? `${reason}: ${e.note}` : reason)} · ${relTime(e.created_at)}</div>
           </div>
           <span class="amount ${e.amount >= 0 ? 'pos' : 'neg'}">${e.amount >= 0 ? '+' : ''}${e.amount} XP</span>`;
         list.appendChild(li);
@@ -628,10 +711,11 @@
       renderApprovals(data.approvals);
       renderQuests(data.trackers);
       renderTrackers(data.trackers);
-      renderBadges(data, life.level);
+      const badges = renderBadges(data, life.level);
       renderFamily(data.family);
       renderActivity(data.recent);
       checkLevelUp(life.level);
+      announceChanges(data, badges);
     }
 
     document.addEventListener('pt:profile', () => loadDashboard().catch(() => {}));

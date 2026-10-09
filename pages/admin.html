@@ -50,10 +50,11 @@
     .check { display: inline-flex; align-items: center; gap: 8px; font-size: 14px; min-height: 44px; cursor: pointer; color: var(--pt-muted); }
     .check input { width: 18px; height: 18px; min-height: 0; accent-color: var(--pt-accent); }
 
-    .picker { margin-bottom: 14px; }
+    .picker-row { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 8px; margin-bottom: 14px; }
+    .picker { flex: 1 1 240px; }
     .picker select { font-weight: 700; font-size: 16px; }
 
-    .tabs { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 4px; padding: 4px; margin-bottom: 16px; border-radius: 14px; background: var(--pt-surface); border: 1px solid var(--pt-border); }
+    .tabs { display: grid; grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr); gap: 4px; padding: 4px; margin-bottom: 16px; border-radius: 14px; background: var(--pt-surface); border: 1px solid var(--pt-border); }
     .tabs button { display: flex; align-items: center; justify-content: center; gap: 6px; min-height: 44px; border: none; border-radius: 10px; background: transparent; color: var(--pt-muted); font: inherit; font-size: 14px; font-weight: 700; cursor: pointer; }
     .tabs button[aria-selected="true"] { background: var(--pt-accent); color: #fff; box-shadow: 0 6px 18px rgba(139, 92, 246, 0.35); }
     .tabs .pt-icon { width: 16px; height: 16px; }
@@ -101,8 +102,8 @@
     .legend { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 8px; margin-bottom: 14px; font-size: 12px; color: var(--pt-muted); }
     .legend strong { color: var(--pt-fg); }
 
-    dialog#editor { margin: auto; width: min(640px, calc(100% - 24px)); max-height: calc(100dvh - 24px); overflow: auto; border: 1px solid var(--pt-border); border-radius: 18px; padding: 20px; background: var(--pt-surface); color: var(--pt-fg); }
-    dialog#editor::backdrop { background: rgba(5, 6, 20, 0.6); backdrop-filter: blur(4px); }
+    dialog.modal { margin: auto; width: min(640px, calc(100% - 24px)); max-height: calc(100dvh - 24px); overflow: auto; border: 1px solid var(--pt-border); border-radius: 18px; padding: 20px; background: var(--pt-surface); color: var(--pt-fg); }
+    dialog.modal::backdrop { background: rgba(5, 6, 20, 0.6); backdrop-filter: blur(4px); }
     .dialog-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px; }
     .dialog-foot { display: flex; justify-content: flex-end; gap: 8px; margin-top: 16px; flex-wrap: wrap; }
     .hint { font-size: 12px; color: var(--pt-muted); font-weight: 400; }
@@ -112,6 +113,20 @@
     .res-row { display: flex; align-items: center; gap: 8px; padding: 6px 0; font-size: 14px; }
     .res-row a { flex: 1; min-width: 0; overflow-wrap: anywhere; color: var(--sky); }
     .res-add { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 2fr) auto; gap: 8px; margin-top: 8px; }
+
+    .swatch { display: inline-block; width: 18px; height: 18px; border-radius: 50%; border: 1px solid var(--pt-border); vertical-align: middle; }
+    .field-row { display: flex; align-items: center; gap: 8px; }
+    .field-row select { flex: 1; }
+    .grants { display: flex; flex-direction: column; gap: 8px; margin-bottom: 4px; }
+    .grant { display: flex; align-items: center; flex-wrap: wrap; gap: 8px 12px; padding: 10px 12px; border-radius: 12px; background: var(--pt-bg); border: 1px solid var(--pt-border); }
+    .grant span { flex: 1 1 160px; min-width: 0; font-weight: 700; font-size: 14px; overflow-wrap: anywhere; }
+    .grant select { flex: 0 1 180px; }
+    .sub-head { font-size: 14px; margin: 16px 0 8px; color: var(--pt-muted); }
+    .tag { display: inline-flex; align-items: center; gap: 4px; padding: 2px 8px; border-radius: 999px; font-size: 11px; font-weight: 800; background: var(--pt-hover); color: var(--pt-muted); }
+    .tag .pt-icon { width: 12px; height: 12px; }
+    .person-trackers { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 6px; }
+    .section-title { display: flex; align-items: center; gap: 8px; font-size: 16px; margin: 20px 0 10px; }
+    .section-title .pt-icon { color: var(--pt-accent); }
 
     @media (max-width: 600px) {
       body { padding: 12px 12px 40px; }
@@ -129,16 +144,21 @@
       <span data-icon="sliders"></span>
       <div>
         <h1>Manage</h1>
-        <p class="muted">Tasks, access and settings for trackers you own</p>
+        <p class="muted">Trackers, tasks, access and people</p>
       </div>
     </div>
 
-    <label class="field picker">Tracker<select id="tracker-select"></select></label>
+    <div class="picker-row">
+      <label class="field picker" data-needs-tracker>Tracker<select id="tracker-select"></select></label>
+      <a class="pt-btn" id="open-tracker" data-needs-tracker></a>
+      <button class="pt-btn pt-btn--primary pt-needs-online" type="button" id="new-tracker"></button>
+    </div>
 
     <div class="tabs" role="tablist" aria-label="Manage sections">
-      <button type="button" role="tab" id="tab-tasks" data-tab="tasks" aria-controls="panel-tasks" aria-selected="true"><span data-icon="list"></span><span>Tasks</span></button>
-      <button type="button" role="tab" id="tab-access" data-tab="access" aria-controls="panel-access" aria-selected="false" tabindex="-1"><span data-icon="users"></span><span>Access</span></button>
-      <button type="button" role="tab" id="tab-settings" data-tab="settings" aria-controls="panel-settings" aria-selected="false" tabindex="-1"><span data-icon="settings"></span><span>Settings</span></button>
+      <button type="button" role="tab" id="tab-tasks" data-tab="tasks" data-needs-tracker aria-controls="panel-tasks" aria-selected="true"><span data-icon="list"></span><span>Tasks</span></button>
+      <button type="button" role="tab" id="tab-access" data-tab="access" data-needs-tracker aria-controls="panel-access" aria-selected="false" tabindex="-1"><span data-icon="users"></span><span>Access</span></button>
+      <button type="button" role="tab" id="tab-settings" data-tab="settings" data-needs-tracker aria-controls="panel-settings" aria-selected="false" tabindex="-1"><span data-icon="settings"></span><span>Settings</span></button>
+      <button type="button" role="tab" id="tab-people" data-tab="people" aria-controls="panel-people" aria-selected="false" tabindex="-1" hidden><span data-icon="user-plus"></span><span>People</span></button>
     </div>
 
     <section id="panel-tasks" role="tabpanel" aria-labelledby="tab-tasks">
@@ -159,7 +179,7 @@
         <span id="legend-review" hidden><strong>Reviewer</strong>: approves completions</span>
       </div>
       <ul class="people" id="people"></ul>
-      <p class="muted" style="margin-top: 12px">People appear here once they have signed in and been approved.</p>
+      <div style="margin-top: 12px" id="access-foot"></div>
     </section>
 
     <section id="panel-settings" role="tabpanel" aria-labelledby="tab-settings" hidden>
@@ -167,15 +187,69 @@
         <div class="form-grid">
           <label class="field wide">Name<input id="tr-name" maxlength="80" required></label>
           <label class="field wide">Description<input id="tr-desc" maxlength="200"></label>
+          <label class="field">Layout<select id="tr-layout"></select></label>
+          <label class="field">Theme<span class="field-row"><span class="swatch" id="tr-swatch"></span><select id="tr-theme"></select></span></label>
+          <p class="hint wide" id="tr-layout-hint"></p>
           <label class="field">Icon<select id="tr-icon"></select></label>
           <label class="field">Order on Home<input id="tr-sort" type="number" min="0" max="999" step="1"></label>
         </div>
         <div class="dialog-foot"><button class="pt-btn pt-btn--primary pt-needs-online" type="submit">Save tracker</button></div>
       </form>
     </section>
+
+    <section id="panel-people" role="tabpanel" aria-labelledby="tab-people" hidden>
+      <form class="card" id="invite-form" novalidate>
+        <h2>Add a person</h2>
+        <p class="muted" style="margin-bottom: 12px">They sign in with Google using this email. If they have already tried to sign in they are added now; otherwise they are added the first time they sign in.</p>
+        <div class="form-grid">
+          <label class="field wide">Google email<input id="inv-email" type="email" maxlength="254" autocomplete="off" required></label>
+          <label class="field">Name <span class="hint">(optional)</span><input id="inv-name" maxlength="60" autocomplete="off"></label>
+          <label class="field">Time zone<select id="inv-tz"></select></label>
+        </div>
+        <h3 class="sub-head">Tracker access</h3>
+        <p class="hint" style="margin-bottom: 8px">For a child: give <strong>Read &amp; write</strong> on a tracker that needs approval. Their ticks give XP straight away, marked pending until the reviewer approves; rejected ticks lose the XP.</p>
+        <div class="grants" id="inv-grants"></div>
+        <p class="error" id="inv-error" hidden></p>
+        <div class="dialog-foot"><button class="pt-btn pt-btn--primary pt-needs-online" type="submit" id="inv-submit">Add person</button></div>
+      </form>
+      <div id="waiting-wrap" hidden>
+        <h2 class="section-title"><span data-icon="clock"></span>Signed in, waiting for approval</h2>
+        <ul class="people" id="waiting"></ul>
+      </div>
+      <div id="invites-wrap" hidden>
+        <h2 class="section-title"><span data-icon="mail"></span>Invited, not signed in yet</h2>
+        <ul class="people" id="invites"></ul>
+      </div>
+      <h2 class="section-title"><span data-icon="users"></span>People</h2>
+      <ul class="people" id="all-people"></ul>
+    </section>
   </div>
 
-  <dialog id="editor" aria-labelledby="editor-title">
+  <dialog id="creator" class="modal" aria-labelledby="creator-title">
+    <form id="creator-form">
+      <div class="dialog-head">
+        <h2 id="creator-title" style="margin: 0">New tracker</h2>
+        <button class="icon-btn" type="button" id="creator-close" aria-label="Close"></button>
+      </div>
+      <div class="form-grid">
+        <label class="field wide">Name<input id="c-name" maxlength="80" required></label>
+        <label class="field wide">Description <span class="hint">(optional)</span><input id="c-desc" maxlength="200"></label>
+        <label class="field wide">Start from<select id="c-copy"></select></label>
+        <label class="field">Layout<select id="c-layout"></select></label>
+        <label class="field">Theme<span class="field-row"><span class="swatch" id="c-swatch"></span><select id="c-theme"></select></span></label>
+        <p class="hint wide" id="c-layout-hint"></p>
+        <label class="field">Icon<select id="c-icon"></select></label>
+        <label class="check wide"><input type="checkbox" id="c-approval">Needs approval: someone else ticks the tasks and you review them (for example a child)</label>
+      </div>
+      <p class="error" id="creator-error" hidden></p>
+      <div class="dialog-foot">
+        <button class="pt-btn" type="button" id="creator-cancel">Cancel</button>
+        <button class="pt-btn pt-btn--primary pt-needs-online" type="submit" id="creator-save">Create tracker</button>
+      </div>
+    </form>
+  </dialog>
+
+  <dialog id="editor" class="modal" aria-labelledby="editor-title">
     <form id="editor-form" method="dialog">
       <div class="dialog-head">
         <h2 id="editor-title" style="margin: 0">Edit</h2>
@@ -195,6 +269,13 @@
         <label class="field wide">Title<input id="f-title" maxlength="300" required></label>
         <label class="field wide">Description <span class="hint">(optional)</span><textarea id="f-desc" maxlength="2000"></textarea></label>
         <label class="field">XP<input id="f-xp" type="number" min="0" max="10000" step="1"></label>
+        <label class="field">Repeat
+          <select id="f-repeat">
+            <option value="none">Once</option>
+            <option value="daily">Every day</option>
+            <option value="weekly">Every week (resets Monday)</option>
+          </select>
+        </label>
         <label class="field">Difficulty
           <select id="f-diff">
             <option value="">None</option>
@@ -266,23 +347,44 @@
     }
 
     async function loadTrackers() {
-      trackers = await q(PT.client.from('trackers').select('id, slug, name, description, icon, sort_order, created_by, requires_approval').eq('created_by', PT.me.id).order('sort_order').order('name'));
+      trackers = await q(PT.client.from('trackers').select('id, slug, name, description, icon, sort_order, created_by, requires_approval, ruleset, layout, theme').eq('created_by', PT.me.id).order('sort_order').order('name'));
       const select = $('tracker-select');
       select.innerHTML = trackers.map(t => `<option value="${PT.esc(t.id)}">${PT.esc(t.name)}</option>`).join('');
       const wanted = params.get('t');
       const match = trackers.find(t => t.slug === wanted || t.id === wanted) || trackers[0];
       if (match) select.value = match.id;
+      document.querySelectorAll('[data-needs-tracker]').forEach(node => { node.hidden = !trackers.length; });
+    }
+
+    function optionsHtml(list, labelOf) {
+      return list.map(item => `<option value="${PT.esc(item.id)}">${PT.esc(labelOf(item))}</option>`).join('');
+    }
+
+    function showSwatch(selectId, swatchId) {
+      const theme = PT.THEMES.find(t => t.id === $(selectId).value) || PT.THEMES[0];
+      $(swatchId).style.background = `linear-gradient(135deg, ${theme.swatch[0]} 50%, ${theme.swatch[1]} 50%)`;
+    }
+
+    function showLayoutHint(selectId, hintId) {
+      const layout = PT.LAYOUTS.find(l => l.id === $(selectId).value);
+      $(hintId).textContent = layout ? layout.hint : '';
     }
 
     async function selectTracker(id) {
       tracker = trackers.find(t => t.id === id) || null;
       if (!tracker) return;
       if (tracker.slug) history.replaceState(null, '', `admin.html?t=${encodeURIComponent(tracker.slug)}`);
+      $('open-tracker').href = `tracker.html?t=${encodeURIComponent(tracker.slug || '')}`;
       $('tr-name').value = tracker.name;
       $('tr-desc').value = tracker.description || '';
       $('tr-sort').value = tracker.sort_order || 0;
-      $('tr-icon').innerHTML = PT.TRACKER_ICONS.map(i => `<option value="${i}">${i}</option>`).join('');
       $('tr-icon').value = PT.TRACKER_ICONS.includes(tracker.icon) ? tracker.icon : 'target';
+      $('tr-layout').value = PT.LAYOUTS.some(l => l.id === tracker.layout) ? tracker.layout : 'checklist';
+      $('tr-theme').innerHTML = optionsHtml(PT.THEMES, t => t.name);
+      if (tracker.theme && !PT.THEMES.some(t => t.id === tracker.theme)) $('tr-theme').add(new Option(`${tracker.theme} (custom)`, tracker.theme));
+      $('tr-theme').value = tracker.theme || 'minimal';
+      showSwatch('tr-theme', 'tr-swatch');
+      showLayoutHint('tr-layout', 'tr-layout-hint');
       $('legend-review').hidden = !tracker.requires_approval;
       await Promise.all([loadNodes(), loadAccess()]);
     }
@@ -298,6 +400,18 @@
       const people = await PT.rpc('pt_manage_access', { p_tracker: tracker.id });
       const list = $('people');
       list.innerHTML = '';
+      const foot = $('access-foot');
+      foot.innerHTML = '';
+      if (PT.me.is_admin) {
+        foot.appendChild(PT.button('Add a new person', 'user-plus', () => {
+          presetGrants = { [tracker.id]: 'write' };
+          renderGrantRows();
+          selectTab('people');
+          $('inv-email').focus();
+        }, 'pt-needs-online'));
+      } else {
+        foot.innerHTML = '<p class="muted">Only people who already share a tracker with you are listed. Ask the site admin to add someone new.</p>';
+      }
       people.forEach(person => {
         const li = document.createElement('li');
         li.className = 'person';
@@ -359,7 +473,7 @@
 
     async function loadNodes() {
       nodes = await q(PT.client.from('tasks')
-        .select('id, parent_id, kind, title, description, xp, difficulty, week_number, time_estimate, sort_order, archived_at, created_at, task_resources(id, title, url, sort_order)')
+        .select('id, parent_id, kind, title, description, xp, difficulty, week_number, time_estimate, sort_order, archived_at, created_at, repeat, task_resources(id, title, url, sort_order)')
         .eq('tracker_id', tracker.id));
       byId = new Map(nodes.map(n => [n.id, n]));
       renderTree();
@@ -380,6 +494,8 @@
           li.style.setProperty('--depth', Math.min(depth, 6));
           const meta = [
             node.kind === 'task' ? `<span class="xp">+${Number(node.xp)} XP</span>` : '',
+            node.kind === 'task' && node.repeat === 'daily' ? 'Every day' : '',
+            node.kind === 'task' && node.repeat === 'weekly' ? 'Every week' : '',
             node.week_number ? `Week ${Number(node.week_number)}` : '',
             node.difficulty ? PT.esc(node.difficulty) : '',
             node.archived_at ? 'Archived' : '',
@@ -468,6 +584,9 @@
       const isTask = kind === 'task';
       $('f-xp').disabled = !isTask;
       $('f-diff').disabled = !isTask;
+      // Godot tasks are complete-once, so repeating is not offered there.
+      $('f-repeat').disabled = !isTask || tracker.ruleset === 'godot';
+      if (!isTask) $('f-repeat').value = 'none';
       if (!isTask) $('f-xp').value = 0;
       $('f-time').disabled = kind !== 'week';
       const parent = byId.get($('f-parent').value);
@@ -491,6 +610,7 @@
       $('f-desc').value = node ? node.description || '' : '';
       $('f-xp').value = node ? node.xp : 25;
       $('f-diff').value = node ? node.difficulty || '' : '';
+      $('f-repeat').value = node ? node.repeat || 'none' : 'none';
       $('f-week').value = node ? node.week_number || '' : (parentNode && parentNode.week_number) || '';
       $('f-time').value = node ? node.time_estimate || '' : '';
       $('f-sort').value = node ? node.sort_order : (siblings.length ? Math.max(...siblings.map(s => s.sort_order)) + 10 : 10);
@@ -574,6 +694,7 @@
         description: $('f-desc').value.trim() || null,
         xp,
         difficulty: kind === 'task' ? $('f-diff').value || null : null,
+        repeat: kind === 'task' && tracker.ruleset !== 'godot' ? $('f-repeat').value : 'none',
         week_number: week,
         time_estimate: kind === 'week' ? $('f-time').value.trim() || null : null,
         sort_order: Math.max(0, Math.round(Number($('f-sort').value) || 0)),
@@ -605,6 +726,8 @@
           name: $('tr-name').value.trim(),
           description: $('tr-desc').value.trim() || null,
           icon,
+          layout: $('tr-layout').value,
+          theme: $('tr-theme').value,
           sort_order: Math.max(0, Math.round(Number($('tr-sort').value) || 0)),
         };
         await q(PT.client.from('trackers').update(changes).eq('id', tracker.id));
@@ -616,20 +739,258 @@
       }
     }
 
+    /* ---------- New tracker ---------- */
+
+    function openCreator() {
+      $('creator-error').hidden = true;
+      $('creator-form').reset();
+      $('c-copy').innerHTML = '<option value="">Empty tracker</option>' +
+        trackers.map(t => `<option value="${PT.esc(t.id)}">Copy of ${PT.esc(t.name)}</option>`).join('');
+      $('c-layout').value = 'checklist';
+      $('c-theme').value = 'minimal';
+      $('c-icon').value = 'target';
+      showSwatch('c-theme', 'c-swatch');
+      showLayoutHint('c-layout', 'c-layout-hint');
+      $('creator').showModal();
+      $('c-name').focus();
+    }
+
+    // Copying a tracker starts with its look too; the user can still change it.
+    function creatorCopyChanged() {
+      const source = trackers.find(t => t.id === $('c-copy').value);
+      if (!source) return;
+      if (PT.LAYOUTS.some(l => l.id === source.layout)) $('c-layout').value = source.layout;
+      if (PT.THEMES.some(t => t.id === source.theme)) $('c-theme').value = source.theme;
+      if (PT.TRACKER_ICONS.includes(source.icon)) $('c-icon').value = source.icon;
+      $('c-approval').checked = !!source.requires_approval;
+      if (!$('c-name').value.trim()) $('c-name').value = `${source.name} (copy)`.slice(0, 80);
+      showSwatch('c-theme', 'c-swatch');
+      showLayoutHint('c-layout', 'c-layout-hint');
+    }
+
+    async function createTracker(event) {
+      event.preventDefault();
+      const name = $('c-name').value.trim();
+      const err = $('creator-error');
+      if (!name) {
+        err.textContent = 'Give the tracker a name.';
+        err.hidden = false;
+        return;
+      }
+      $('creator-save').disabled = true;
+      try {
+        const res = await PT.rpc('pt_create_tracker', {
+          p_name: name,
+          p_description: $('c-desc').value.trim() || null,
+          p_icon: $('c-icon').value,
+          p_layout: $('c-layout').value,
+          p_theme: $('c-theme').value,
+          p_requires_approval: $('c-approval').checked,
+          p_copy_from: $('c-copy').value || null,
+        });
+        $('creator').close();
+        PT.toast(res.tasks ? `Tracker created with ${res.tasks} tasks copied` : 'Tracker created. Add tasks below.');
+        await loadTrackers();
+        $('tracker-select').value = res.id;
+        await selectTracker(res.id);
+        selectTab('tasks');
+        if (PT.me.is_admin) await loadPeople();
+      } catch (error) {
+        err.textContent = error.message;
+        err.hidden = false;
+      } finally {
+        $('creator-save').disabled = false;
+      }
+    }
+
+    /* ---------- People (site admin) ---------- */
+
+    const LEVEL_NAMES = { owner: 'Owner', review: 'Reviewer', write: 'Read & write', read: 'Read only' };
+    let peopleData = null;
+    let presetGrants = {};
+
+    function timeZones() {
+      const zones = typeof Intl.supportedValuesOf === 'function' ? Intl.supportedValuesOf('timeZone') : [];
+      return Array.from(new Set(['UTC', PT.me.timezone, ...zones].filter(Boolean)));
+    }
+
+    async function loadPeople() {
+      peopleData = await PT.rpc('pt_people_list');
+      renderGrantRows();
+      renderWaiting();
+      renderInvites();
+      renderAllPeople();
+    }
+
+    function renderGrantRows() {
+      if (!peopleData) return;
+      const host = $('inv-grants');
+      const current = {};
+      host.querySelectorAll('select').forEach(s => { current[s.dataset.tracker] = s.value; });
+      host.innerHTML = '';
+      if (!peopleData.trackers.length) host.innerHTML = '<p class="muted">No trackers yet.</p>';
+      peopleData.trackers.forEach(t => {
+        const row = document.createElement('div');
+        row.className = 'grant';
+        const label = document.createElement('span');
+        label.textContent = t.name;
+        if (t.requires_approval) label.insertAdjacentHTML('beforeend', ` <span class="tag">${PT.icon('shield')}needs approval</span>`);
+        const select = document.createElement('select');
+        select.dataset.tracker = t.id;
+        select.setAttribute('aria-label', `Access to ${t.name}`);
+        const levels = [['none', 'No access'], ['read', 'Read only'], ['write', 'Read & write']];
+        if (t.requires_approval) levels.push(['review', 'Reviewer']);
+        select.innerHTML = levels.map(([v, l]) => `<option value="${v}">${l}</option>`).join('');
+        select.value = presetGrants[t.id] || current[t.id] || 'none';
+        row.append(label, select);
+        host.appendChild(row);
+      });
+      presetGrants = {};
+    }
+
+    function personRow(name, sub, extra) {
+      const li = document.createElement('li');
+      li.className = 'person';
+      li.innerHTML = `
+        <span class="pt-avatar">${PT.esc(PT.initials(name))}</span>
+        <div class="person-info">
+          <div class="person-name">${PT.esc(name)}</div>
+          <div class="person-email">${PT.esc(sub)}</div>
+          ${extra || ''}
+        </div>`;
+      return li;
+    }
+
+    function trackerTags(list) {
+      if (!list || !list.length) return '<div class="person-trackers"><span class="tag">No trackers</span></div>';
+      return `<div class="person-trackers">${list.map(t => `<span class="tag">${PT.esc(t.name)}: ${PT.esc(LEVEL_NAMES[t.level] || t.level)}</span>`).join('')}</div>`;
+    }
+
+    async function peopleAction(button, fn, success) {
+      button.disabled = true;
+      try {
+        await fn();
+        PT.toast(success);
+        await loadPeople();
+        if (tracker) await loadAccess();
+      } catch (error) {
+        button.disabled = false;
+        PT.toast(error.message, 'error');
+      }
+    }
+
+    function renderWaiting() {
+      const list = $('waiting');
+      list.innerHTML = '';
+      $('waiting-wrap').hidden = !peopleData.waiting.length;
+      peopleData.waiting.forEach(w => {
+        const when = w.last_sign_in_at ? `Last tried ${new Date(w.last_sign_in_at).toLocaleDateString()}` : 'Signed up';
+        const li = personRow(w.email, when);
+        const btn = PT.button('Approve', 'check', () => peopleAction(btn,
+          () => PT.rpc('pt_approve_signup', { p_user: w.id, p_display_name: null, p_timezone: PT.me.timezone }),
+          `${w.email} approved. Give them access on each tracker's Access tab.`), 'pt-btn--primary pt-needs-online');
+        li.appendChild(btn);
+        list.appendChild(li);
+      });
+    }
+
+    function renderInvites() {
+      const list = $('invites');
+      list.innerHTML = '';
+      $('invites-wrap').hidden = !peopleData.invites.length;
+      peopleData.invites.forEach(inv => {
+        const li = personRow(inv.display_name || inv.email, inv.display_name ? inv.email : `Invited ${new Date(inv.created_at).toLocaleDateString()}`, trackerTags(inv.trackers));
+        const btn = PT.button('Cancel invite', 'x', () => {
+          if (!confirm(`Cancel the invite for ${inv.email}?`)) return;
+          peopleAction(btn, () => PT.rpc('pt_revoke_invite', { p_invite: inv.id }), 'Invite cancelled');
+        }, 'pt-needs-online');
+        li.appendChild(btn);
+        list.appendChild(li);
+      });
+    }
+
+    function renderAllPeople() {
+      const list = $('all-people');
+      list.innerHTML = '';
+      peopleData.users.forEach(u => {
+        const li = personRow(u.name, u.email, trackerTags(u.trackers));
+        if (u.is_admin) li.insertAdjacentHTML('beforeend', `<span class="owner-tag">${PT.icon('crown')}Admin</span>`);
+        if (u.id !== PT.me.id && !u.owns_trackers) {
+          const btn = PT.button('Remove', 'user-x', () => {
+            if (!confirm(`Remove ${u.name}? They lose access to every tracker. Their XP history is kept if you add them again later.`)) return;
+            peopleAction(btn, () => PT.rpc('pt_remove_user', { p_user: u.id }), `${u.name} removed`);
+          }, 'pt-btn--danger pt-needs-online');
+          li.appendChild(btn);
+        }
+        list.appendChild(li);
+      });
+    }
+
+    async function invite(event) {
+      event.preventDefault();
+      const email = $('inv-email').value.trim().toLowerCase();
+      const err = $('inv-error');
+      err.hidden = true;
+      if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) {
+        err.textContent = 'Enter the email address they use for Google sign-in.';
+        err.hidden = false;
+        return;
+      }
+      const grants = [...$('inv-grants').querySelectorAll('select')]
+        .filter(s => s.value !== 'none')
+        .map(s => ({ tracker_id: s.dataset.tracker, level: s.value }));
+      $('inv-submit').disabled = true;
+      try {
+        const res = await PT.rpc('pt_invite_user', {
+          p_email: email,
+          p_display_name: $('inv-name').value.trim() || null,
+          p_timezone: $('inv-tz').value,
+          p_grants: grants,
+        });
+        PT.toast(res.status === 'added' ? `${email} added. They can use the site now.` : `Invite saved. ${email} is added when they first sign in with Google.`);
+        $('invite-form').reset();
+        $('inv-tz').value = PT.me.timezone;
+        $('inv-grants').querySelectorAll('select').forEach(s => { s.value = 'none'; });
+        await loadPeople();
+        if (tracker) await loadAccess();
+      } catch (error) {
+        err.textContent = error.message;
+        err.hidden = false;
+      } finally {
+        $('inv-submit').disabled = false;
+      }
+    }
+
     async function start() {
       await PT.requireAuth();
       PT.mountNav('#app');
       PT.hydrateIcons();
+      const isAdmin = !!PT.me.is_admin;
       $('add-root').innerHTML = PT.icon('plus') + '<span>Add item</span>';
       $('res-add').innerHTML = PT.icon('plus') + '<span>Add link</span>';
       $('editor-close').innerHTML = PT.icon('x');
+      $('creator-close').innerHTML = PT.icon('x');
+      $('open-tracker').innerHTML = PT.icon('external-link') + '<span>Open</span>';
+      $('new-tracker').innerHTML = PT.icon('plus') + '<span>New tracker</span>';
+      const iconOptions = PT.TRACKER_ICONS.map(i => `<option value="${i}">${i}</option>`).join('');
+      $('tr-icon').innerHTML = iconOptions;
+      $('c-icon').innerHTML = iconOptions;
+      $('tr-layout').innerHTML = optionsHtml(PT.LAYOUTS, l => l.name);
+      $('c-layout').innerHTML = optionsHtml(PT.LAYOUTS, l => l.name);
+      $('c-theme').innerHTML = optionsHtml(PT.THEMES, t => t.name);
+      $('tab-people').hidden = !isAdmin;
       try {
         await loadTrackers();
-        if (!trackers.length) {
-          PT.showGate('You do not own any trackers yet. Create one in the Supabase SQL Editor with pt_admin_create_tracker.', true, [PT.link('Home', 'home', PT.url('index.html'))]);
+        if (!trackers.length && !isAdmin) {
+          PT.showGate('You do not own any trackers yet. Ask the site admin to create one for you.', true, [PT.link('Home', 'home', PT.url('index.html'))]);
           return;
         }
-        await selectTracker($('tracker-select').value);
+        if (trackers.length) await selectTracker($('tracker-select').value);
+        if (isAdmin) {
+          $('inv-tz').innerHTML = timeZones().map(z => `<option>${PT.esc(z)}</option>`).join('');
+          $('inv-tz').value = PT.me.timezone;
+          await loadPeople();
+        }
       } catch (error) {
         PT.showGate(error.message, true, [PT.link('Home', 'home', PT.url('index.html'))]);
         return;
@@ -645,17 +1006,30 @@
       $('editor-close').addEventListener('click', () => $('editor').close());
       $('res-add').addEventListener('click', addResource);
       $('tracker-form').addEventListener('submit', saveTracker);
-      document.querySelectorAll('.tabs [role="tab"]').forEach((tab, i, tabs) => {
+      $('tr-theme').addEventListener('change', () => showSwatch('tr-theme', 'tr-swatch'));
+      $('tr-layout').addEventListener('change', () => showLayoutHint('tr-layout', 'tr-layout-hint'));
+      $('new-tracker').addEventListener('click', openCreator);
+      $('creator-form').addEventListener('submit', createTracker);
+      $('creator-cancel').addEventListener('click', () => $('creator').close());
+      $('creator-close').addEventListener('click', () => $('creator').close());
+      $('c-copy').addEventListener('change', creatorCopyChanged);
+      $('c-theme').addEventListener('change', () => showSwatch('c-theme', 'c-swatch'));
+      $('c-layout').addEventListener('change', () => showLayoutHint('c-layout', 'c-layout-hint'));
+      $('invite-form').addEventListener('submit', invite);
+      document.querySelectorAll('.tabs [role="tab"]').forEach(tab => {
         tab.addEventListener('click', () => selectTab(tab.dataset.tab));
         tab.addEventListener('keydown', event => {
           const step = event.key === 'ArrowRight' ? 1 : event.key === 'ArrowLeft' ? -1 : 0;
           if (!step) return;
           event.preventDefault();
+          const tabs = [...document.querySelectorAll('.tabs [role="tab"]')].filter(t => !t.hidden);
+          const i = tabs.indexOf(tab);
           const nextTab = tabs[(i + step + tabs.length) % tabs.length];
           selectTab(nextTab.dataset.tab);
           nextTab.focus();
         });
       });
+      if (!trackers.length || params.get('tab') === 'people') selectTab(isAdmin ? 'people' : 'tasks');
       PT.hideGate();
     }
 
