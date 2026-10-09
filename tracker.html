@@ -1,0 +1,318 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Tracker</title>
+  <link rel="stylesheet" href="app.css">
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    :root {
+      --pt-bg: #f4f6fb;
+      --pt-surface: #ffffff;
+      --pt-fg: #1f2937;
+      --pt-muted: #6b7280;
+      --pt-border: #e5e7eb;
+      --pt-accent: #6d5dfc;
+      --pt-on-accent: #ffffff;
+      --pt-hover: #f3f4f6;
+      --pt-danger: #b91c1c;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;
+      background: var(--pt-bg);
+      color: var(--pt-fg);
+      line-height: 1.5;
+      padding: 24px 20px 48px;
+      min-height: 100vh;
+    }
+
+    .container { max-width: 820px; margin: 0 auto; }
+
+    .head { display: flex; gap: 16px; align-items: center; margin-bottom: 20px; }
+    .head-icon { width: 56px; height: 56px; border-radius: 14px; display: flex; align-items: center; justify-content: center; background: rgba(109, 93, 252, 0.12); color: var(--pt-accent); flex-shrink: 0; }
+    .head-icon .pt-icon { width: 28px; height: 28px; }
+    h1 { font-size: 26px; line-height: 1.2; letter-spacing: 0; overflow-wrap: anywhere; }
+    .desc { color: var(--pt-muted); overflow-wrap: anywhere; }
+
+    .summary { background: var(--pt-surface); border: 1px solid var(--pt-border); border-radius: 12px; padding: 16px 20px; margin-bottom: 20px; }
+    .summary-row { display: flex; justify-content: space-between; flex-wrap: wrap; gap: 4px 16px; font-size: 14px; color: var(--pt-muted); }
+    .summary-row strong { color: var(--pt-fg); }
+    .bar { height: 10px; background: var(--pt-border); border-radius: 5px; overflow: hidden; margin: 10px 0 0; }
+    .bar > div { height: 100%; background: var(--pt-accent); border-radius: 5px; transition: width 0.4s ease; }
+
+    .note { display: flex; gap: 8px; align-items: center; padding: 12px 16px; border-radius: 10px; background: rgba(109, 93, 252, 0.08); color: var(--pt-fg); font-size: 14px; margin-bottom: 20px; }
+    .note .pt-icon { color: var(--pt-accent); }
+
+    .group { background: var(--pt-surface); border: 1px solid var(--pt-border); border-radius: 12px; margin-bottom: 16px; overflow: hidden; }
+    .group > summary { list-style: none; cursor: pointer; display: flex; align-items: center; gap: 12px; padding: 14px 16px; min-height: 52px; }
+    .group > summary::-webkit-details-marker { display: none; }
+    .group > summary .chev { transition: transform 0.2s ease; color: var(--pt-muted); }
+    .group:not([open]) > summary .chev { transform: rotate(-90deg); }
+    .group-title { flex: 1; font-weight: 700; overflow-wrap: anywhere; }
+    .group-count { font-size: 13px; color: var(--pt-muted); white-space: nowrap; }
+    .group-body { padding: 0 16px 12px; }
+    .group .group { border-radius: 8px; margin: 8px 0; }
+    .group-desc { font-size: 13px; color: var(--pt-muted); margin-bottom: 8px; }
+    .divider { display: flex; align-items: center; gap: 8px; color: var(--pt-muted); font-size: 13px; font-weight: 600; margin: 8px 0 16px; }
+
+    .tasks { list-style: none; }
+    .task { display: flex; align-items: flex-start; gap: 12px; padding: 8px 0; border-top: 1px solid var(--pt-border); }
+    .task:first-child { border-top: none; }
+    .task input { width: 22px; height: 22px; margin-top: 11px; accent-color: var(--pt-accent); flex-shrink: 0; cursor: pointer; }
+    .task input:disabled { cursor: not-allowed; }
+    .task label { flex: 1; min-width: 0; display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; min-height: 44px; padding: 8px 0; cursor: pointer; }
+    .task-title { flex: 1 1 200px; min-width: 0; overflow-wrap: anywhere; }
+    .task-desc { flex-basis: 100%; font-size: 13px; color: var(--pt-muted); }
+    .task.done .task-title { text-decoration: line-through; color: var(--pt-muted); }
+    .xp { font-size: 12px; font-weight: 800; color: var(--pt-accent); white-space: nowrap; }
+    .rejected { font-size: 12px; font-weight: 700; color: var(--pt-danger); }
+    .difficulty { font-size: 11px; font-weight: 700; text-transform: uppercase; padding: 2px 8px; border-radius: 4px; background: var(--pt-hover); color: var(--pt-muted); }
+
+    .resources { display: flex; flex-wrap: wrap; gap: 8px; margin: 8px 0; }
+    .resources a { display: inline-flex; align-items: center; gap: 6px; min-height: 40px; padding: 6px 12px; border: 1px solid var(--pt-border); border-radius: 8px; color: var(--pt-accent); text-decoration: none; font-size: 13px; font-weight: 600; }
+    .resources a .pt-icon { width: 14px; height: 14px; }
+
+    .empty { color: var(--pt-muted); text-align: center; padding: 32px 0; }
+
+    @media (max-width: 480px) {
+      body { padding: 16px 12px 40px; }
+      h1 { font-size: 22px; }
+    }
+  </style>
+</head>
+<body>
+  <div class="container" id="app">
+    <div class="head">
+      <div class="head-icon" id="head-icon"></div>
+      <div>
+        <h1 id="title">Tracker</h1>
+        <p class="desc" id="desc"></p>
+      </div>
+    </div>
+    <div class="note" id="note" hidden></div>
+    <div class="summary" id="summary"></div>
+    <div id="content"></div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="app.js"></script>
+  <script>
+    const slug = new URLSearchParams(location.search).get('t') || '';
+    let data = null;
+
+    function statusOf(taskId) {
+      const entry = data.progress.get(taskId);
+      return entry ? entry.status : null;
+    }
+
+    function countTasks(node) {
+      let total = 0;
+      let done = 0;
+      node.children.forEach(child => {
+        if (child.kind === 'task') {
+          total += 1;
+          if (statusOf(child.id) === 'approved') done += 1;
+        } else {
+          const sub = countTasks(child);
+          total += sub.total;
+          done += sub.done;
+        }
+      });
+      return { total, done };
+    }
+
+    function renderSummary() {
+      const total = data.tasks.length;
+      const done = data.tasks.filter(t => statusOf(t.id) === 'approved').length;
+      const pending = data.tasks.filter(t => statusOf(t.id) === 'pending').length;
+      const pct = total ? Math.round((done / total) * 100) : 0;
+      document.getElementById('summary').innerHTML = `
+        <div class="summary-row">
+          <span><strong>${done} of ${total}</strong> done · ${pct}%</span>
+          <span>${pending ? `${pending} awaiting approval · ` : ''}<strong>${Number(data.trackerXp).toLocaleString()} XP</strong></span>
+        </div>
+        <div class="bar"><div style="width: ${pct}%"></div></div>`;
+    }
+
+    function renderTask(task) {
+      const li = document.createElement('li');
+      li.className = 'task';
+      const box = document.createElement('input');
+      box.type = 'checkbox';
+      box.id = `task-${task.id}`;
+      box.className = 'pt-needs-online';
+      const label = document.createElement('label');
+      label.htmlFor = box.id;
+      const title = document.createElement('span');
+      title.className = 'task-title';
+      title.textContent = task.title;
+      const badge = document.createElement('span');
+      label.append(title, badge);
+      if (task.difficulty) {
+        const diff = document.createElement('span');
+        diff.className = 'difficulty';
+        diff.textContent = task.difficulty;
+        label.appendChild(diff);
+      }
+      const xp = document.createElement('span');
+      xp.className = 'xp';
+      xp.textContent = `+${task.xp} XP`;
+      label.appendChild(xp);
+      if (task.description) {
+        const desc = document.createElement('span');
+        desc.className = 'task-desc';
+        desc.textContent = task.description;
+        label.appendChild(desc);
+      }
+      li.append(box, label);
+
+      const paint = () => {
+        const status = statusOf(task.id);
+        box.checked = status === 'approved' || status === 'pending';
+        box.disabled = !data.canEdit || (status === 'approved' && !data.tracker.allow_uncheck);
+        li.classList.toggle('done', status === 'approved');
+        badge.innerHTML = status === 'pending'
+          ? `<span class="pt-pending-badge">${PT.icon('clock')}Awaiting approval</span>`
+          : status === 'rejected' ? '<span class="rejected">Sent back, try again</span>' : '';
+      };
+
+      box.addEventListener('change', async () => {
+        const want = box.checked;
+        box.disabled = true;
+        try {
+          if (want) {
+            const res = await PT.completeTask(task.id);
+            data.progress.set(task.id, { task_id: task.id, status: res.status });
+            if (res.status === 'pending') PT.toast('Sent for approval');
+            else if (res.changed) {
+              data.trackerXp += res.awarded_xp || 0;
+              PT.toast(`+${res.awarded_xp || 0} XP`);
+            }
+          } else {
+            const res = await PT.uncompleteTask(task.id);
+            data.progress.delete(task.id);
+            if (res.refunded_xp) {
+              data.trackerXp -= res.refunded_xp;
+              PT.toast(`-${res.refunded_xp} XP`);
+            }
+          }
+        } catch (error) {
+          PT.toast(error.message, 'error');
+        }
+        paint();
+        renderSummary();
+      });
+
+      paint();
+      return li;
+    }
+
+    function renderResources(list) {
+      const links = (list || []).filter(r => PT.safeUrl(r.url));
+      if (!links.length) return null;
+      const wrap = document.createElement('div');
+      wrap.className = 'resources';
+      links.forEach(r => {
+        const a = document.createElement('a');
+        a.href = PT.safeUrl(r.url);
+        a.target = '_blank';
+        a.rel = 'noopener noreferrer';
+        a.append(PT.iconEl('external-link'), document.createTextNode(r.title));
+        wrap.appendChild(a);
+      });
+      return wrap;
+    }
+
+    function renderChildren(children, host) {
+      let list = null;
+      children.forEach(child => {
+        if (child.kind === 'task') {
+          if (!list) {
+            list = document.createElement('ul');
+            list.className = 'tasks';
+            host.appendChild(list);
+          }
+          list.appendChild(renderTask(child));
+          return;
+        }
+        list = null;
+        if (child.kind === 'divider') {
+          const div = document.createElement('div');
+          div.className = 'divider';
+          div.append(PT.iconEl('check-circle'), document.createTextNode(child.title));
+          host.appendChild(div);
+          return;
+        }
+        host.appendChild(renderGroup(child));
+      });
+    }
+
+    function renderGroup(node) {
+      const details = document.createElement('details');
+      details.className = 'group';
+      details.open = true;
+      const summary = document.createElement('summary');
+      const counts = countTasks(node);
+      const title = document.createElement('span');
+      title.className = 'group-title';
+      title.textContent = node.week_number ? `Week ${node.week_number}: ${node.title}` : node.title;
+      const count = document.createElement('span');
+      count.className = 'group-count';
+      count.textContent = counts.total ? `${counts.done}/${counts.total}` : '';
+      summary.append(PT.iconEl('chevron-down', 'chev'), title, count);
+      const body = document.createElement('div');
+      body.className = 'group-body';
+      if (node.description) {
+        const desc = document.createElement('p');
+        desc.className = 'group-desc';
+        desc.textContent = node.description;
+        body.appendChild(desc);
+      }
+      const res = renderResources(node.task_resources);
+      if (res) body.appendChild(res);
+      renderChildren(node.children, body);
+      details.append(summary, body);
+      return details;
+    }
+
+    async function start() {
+      await PT.requireAuth();
+      try {
+        if (!/^[a-z0-9-]{1,40}$/.test(slug)) throw new Error('No tracker selected.');
+        data = await PT.loadTracker(slug);
+      } catch (error) {
+        PT.showGate(error.message, true, [PT.link('Home', 'home', 'index.html'), PT.button('Sign out', 'log-out', PT.signOut)]);
+        return;
+      }
+      PT.mountNav('#app', { admin: data.isCreator ? `admin.html?t=${encodeURIComponent(slug)}` : null });
+      document.title = data.tracker.name;
+      document.getElementById('title').textContent = data.tracker.name;
+      document.getElementById('desc').textContent = data.tracker.description || '';
+      document.getElementById('head-icon').innerHTML = PT.icon(PT.TRACKER_ICONS.includes(data.tracker.icon) ? data.tracker.icon : 'target');
+
+      const note = document.getElementById('note');
+      if (data.role === 'guardian') {
+        note.hidden = false;
+        note.innerHTML = PT.icon('shield') + '<span>You review this tracker. Approve completed tasks from the Home page.</span>';
+      } else if (data.tracker.requires_approval && data.role === 'member') {
+        note.hidden = false;
+        note.innerHTML = PT.icon('shield') + '<span>Tick a task when you finish it. You get the XP once it is approved.</span>';
+      }
+
+      renderSummary();
+      const content = document.getElementById('content');
+      if (!data.roots.length) {
+        content.innerHTML = '<p class="empty">No tasks yet.</p>';
+      } else {
+        renderChildren(data.roots, content);
+      }
+      PT.hideGate();
+    }
+
+    start();
+  </script>
+</body>
+</html>

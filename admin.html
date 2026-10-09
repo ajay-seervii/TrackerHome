@@ -1,0 +1,519 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Manage tasks</title>
+  <link rel="stylesheet" href="app.css">
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    :root {
+      --pt-bg: #f5f5f4;
+      --pt-surface: #ffffff;
+      --pt-fg: #1c1917;
+      --pt-muted: #78716c;
+      --pt-border: #e7e5e4;
+      --pt-accent: #0f766e;
+      --pt-on-accent: #ffffff;
+      --pt-hover: #f5f5f4;
+      --pt-danger: #b91c1c;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;
+      background: var(--pt-bg);
+      color: var(--pt-fg);
+      line-height: 1.5;
+      padding: 24px 20px 48px;
+      min-height: 100vh;
+    }
+
+    .container { max-width: 1000px; margin: 0 auto; }
+    h1 { font-size: 24px; letter-spacing: 0; margin-bottom: 4px; }
+    h2 { font-size: 16px; letter-spacing: 0; margin-bottom: 12px; }
+    .muted { color: var(--pt-muted); font-size: 14px; }
+
+    .card { background: var(--pt-surface); border: 1px solid var(--pt-border); border-radius: 12px; padding: 16px 20px; margin-bottom: 20px; }
+
+    .toolbar { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin: 16px 0; }
+    .toolbar .grow { flex: 1; }
+
+    label.field { display: flex; flex-direction: column; gap: 4px; font-size: 13px; font-weight: 600; color: var(--pt-muted); min-width: 0; }
+    input, select, textarea { min-height: 44px; padding: 8px 10px; border: 1px solid var(--pt-border); border-radius: 8px; font: inherit; font-size: 14px; color: var(--pt-fg); background: #fff; width: 100%; }
+    textarea { min-height: 72px; resize: vertical; }
+    input:disabled, select:disabled { background: var(--pt-hover); color: var(--pt-muted); }
+    .check { display: inline-flex; align-items: center; gap: 8px; font-size: 14px; min-height: 44px; cursor: pointer; }
+    .check input { width: 18px; height: 18px; min-height: 0; }
+
+    .form-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px; }
+    .form-grid .wide { grid-column: 1 / -1; }
+
+    .tree { list-style: none; }
+    .row { display: flex; align-items: center; gap: 8px; padding: 8px 0; border-bottom: 1px solid var(--pt-border); min-width: 0; }
+    .row:last-child { border-bottom: none; }
+    .row.archived { opacity: 0.5; }
+    .row .title { flex: 1; min-width: 0; overflow-wrap: anywhere; }
+    .row .title.group { font-weight: 700; }
+    .kind { font-size: 11px; font-weight: 700; text-transform: uppercase; padding: 2px 6px; border-radius: 4px; background: var(--pt-hover); color: var(--pt-muted); white-space: nowrap; }
+    .meta { font-size: 12px; color: var(--pt-muted); white-space: nowrap; }
+    .actions { display: flex; gap: 2px; flex-shrink: 0; }
+    .icon-btn { width: 40px; height: 40px; display: inline-flex; align-items: center; justify-content: center; border: none; border-radius: 6px; background: transparent; color: var(--pt-muted); cursor: pointer; }
+    .icon-btn:hover { background: var(--pt-hover); color: var(--pt-fg); }
+    .icon-btn:disabled { opacity: 0.3; cursor: default; }
+    .icon-btn .pt-icon { width: 16px; height: 16px; }
+
+    dialog { margin: auto; width: min(640px, calc(100% - 24px)); max-height: calc(100dvh - 24px); overflow: auto; border: 1px solid var(--pt-border); border-radius: 12px; padding: 20px; background: var(--pt-surface); color: var(--pt-fg); }
+    dialog::backdrop { background: rgba(0, 0, 0, 0.3); }
+    .dialog-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px; }
+    .dialog-foot { display: flex; justify-content: flex-end; gap: 8px; margin-top: 16px; flex-wrap: wrap; }
+    .hint { font-size: 12px; color: var(--pt-muted); font-weight: 400; }
+    .error { color: var(--pt-danger); font-size: 14px; margin-top: 8px; }
+
+    .resources { margin-top: 16px; padding-top: 16px; border-top: 1px solid var(--pt-border); }
+    .res-row { display: flex; align-items: center; gap: 8px; padding: 6px 0; font-size: 14px; }
+    .res-row a { flex: 1; min-width: 0; overflow-wrap: anywhere; color: var(--pt-accent); }
+    .res-add { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 2fr) auto; gap: 8px; margin-top: 8px; }
+
+    @media (max-width: 600px) {
+      body { padding: 16px 12px 40px; }
+      .meta { display: none; }
+      .res-add { grid-template-columns: minmax(0, 1fr); }
+    }
+  </style>
+</head>
+<body>
+  <div class="container" id="app">
+    <h1>Manage tasks</h1>
+    <p class="muted">Changes show up on the tracker the next time it is opened. Archived items are hidden but keep their history and earned XP.</p>
+
+    <div class="toolbar">
+      <label class="field grow">Tracker<select id="tracker-select"></select></label>
+    </div>
+
+    <form class="card" id="tracker-form">
+      <h2>Tracker settings</h2>
+      <div class="form-grid">
+        <label class="field">Name<input id="tr-name" maxlength="80" required></label>
+        <label class="field">Icon<select id="tr-icon"></select></label>
+        <label class="field">Order on Home<input id="tr-sort" type="number" min="0" max="999" step="1"></label>
+        <label class="field wide">Description<input id="tr-desc" maxlength="200"></label>
+      </div>
+      <div class="dialog-foot"><button class="pt-btn pt-btn--primary pt-needs-online" type="submit">Save tracker</button></div>
+    </form>
+
+    <div class="card">
+      <div class="toolbar" style="margin-top: 0">
+        <h2 class="grow" style="margin: 0">Tasks and groups</h2>
+        <label class="check"><input type="checkbox" id="show-archived">Show archived</label>
+        <button class="pt-btn pt-btn--primary pt-needs-online" type="button" id="add-root"></button>
+      </div>
+      <ul class="tree" id="tree"></ul>
+    </div>
+  </div>
+
+  <dialog id="editor" aria-labelledby="editor-title">
+    <form id="editor-form" method="dialog">
+      <div class="dialog-head">
+        <h2 id="editor-title" style="margin: 0">Edit</h2>
+        <button class="icon-btn" type="button" id="editor-close" aria-label="Close"></button>
+      </div>
+      <div class="form-grid">
+        <label class="field">Type
+          <select id="f-kind">
+            <option value="task">Task</option>
+            <option value="section">Section</option>
+            <option value="week">Week</option>
+            <option value="phase">Phase</option>
+            <option value="divider">Divider label</option>
+          </select>
+        </label>
+        <label class="field">Inside<select id="f-parent"></select></label>
+        <label class="field wide">Title<input id="f-title" maxlength="300" required></label>
+        <label class="field wide">Description <span class="hint">(optional)</span><textarea id="f-desc" maxlength="2000"></textarea></label>
+        <label class="field">XP<input id="f-xp" type="number" min="0" max="10000" step="1"></label>
+        <label class="field">Difficulty
+          <select id="f-diff">
+            <option value="">None</option>
+            <option value="easy">Easy</option>
+            <option value="medium">Medium</option>
+            <option value="hard">Hard</option>
+          </select>
+        </label>
+        <label class="field">Week <span class="hint" id="week-hint"></span><input id="f-week" type="number" min="1" max="520" step="1"></label>
+        <label class="field">Time estimate<input id="f-time" maxlength="40" placeholder="e.g. 10-12 hrs"></label>
+        <label class="field">Order<input id="f-sort" type="number" min="0" step="1"></label>
+      </div>
+      <p class="error" id="editor-error" hidden></p>
+
+      <div class="resources" id="resources" hidden>
+        <h2>Resource links</h2>
+        <div id="res-list"></div>
+        <div class="res-add">
+          <input id="res-title" maxlength="120" placeholder="Link title">
+          <input id="res-url" type="url" maxlength="500" placeholder="https://...">
+          <button class="pt-btn pt-needs-online" type="button" id="res-add"></button>
+        </div>
+      </div>
+
+      <div class="dialog-foot">
+        <button class="pt-btn" type="button" id="editor-cancel">Cancel</button>
+        <button class="pt-btn pt-btn--primary pt-needs-online" type="submit" id="editor-save">Save</button>
+      </div>
+    </form>
+  </dialog>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="app.js"></script>
+  <script>
+    const GROUP_KINDS = ['phase', 'week', 'section'];
+    const params = new URLSearchParams(location.search);
+    let trackers = [];
+    let tracker = null;
+    let nodes = [];
+    let byId = new Map();
+    let editing = null;
+
+    const $ = id => document.getElementById(id);
+
+    async function q(promise) {
+      const { data, error } = await promise;
+      if (error) throw new Error(PT.friendlyError(error));
+      return data;
+    }
+
+    function childrenOf(parentId) {
+      return nodes
+        .filter(n => (n.parent_id || null) === (parentId || null))
+        .sort((a, b) => a.sort_order - b.sort_order || a.created_at.localeCompare(b.created_at));
+    }
+
+    function depthOf(node) {
+      let depth = 0;
+      for (let cur = node; cur && cur.parent_id && depth < 20; depth++) cur = byId.get(cur.parent_id);
+      return depth;
+    }
+
+    function isDescendant(candidate, ancestorId) {
+      for (let cur = candidate, i = 0; cur && i < 25; i++) {
+        if (cur.id === ancestorId) return true;
+        cur = cur.parent_id ? byId.get(cur.parent_id) : null;
+      }
+      return false;
+    }
+
+    async function loadTrackers() {
+      trackers = await q(PT.client.from('trackers').select('id, slug, name, description, icon, sort_order, created_by').eq('created_by', PT.me.id).order('sort_order').order('name'));
+      const select = $('tracker-select');
+      select.innerHTML = trackers.map(t => `<option value="${PT.esc(t.id)}">${PT.esc(t.name)}</option>`).join('');
+      const wanted = params.get('t');
+      const match = trackers.find(t => t.slug === wanted || t.id === wanted) || trackers[0];
+      if (match) select.value = match.id;
+    }
+
+    async function selectTracker(id) {
+      tracker = trackers.find(t => t.id === id) || null;
+      if (!tracker) return;
+      if (tracker.slug) history.replaceState(null, '', `admin.html?t=${encodeURIComponent(tracker.slug)}`);
+      $('tr-name').value = tracker.name;
+      $('tr-desc').value = tracker.description || '';
+      $('tr-sort').value = tracker.sort_order || 0;
+      $('tr-icon').innerHTML = PT.TRACKER_ICONS.map(i => `<option value="${i}">${i}</option>`).join('');
+      $('tr-icon').value = PT.TRACKER_ICONS.includes(tracker.icon) ? tracker.icon : 'target';
+      await loadNodes();
+    }
+
+    async function loadNodes() {
+      nodes = await q(PT.client.from('tasks')
+        .select('id, parent_id, kind, title, description, xp, difficulty, week_number, time_estimate, sort_order, archived_at, created_at, task_resources(id, title, url, sort_order)')
+        .eq('tracker_id', tracker.id));
+      byId = new Map(nodes.map(n => [n.id, n]));
+      renderTree();
+    }
+
+    function renderTree() {
+      const tree = $('tree');
+      tree.innerHTML = '';
+      const showArchived = $('show-archived').checked;
+      const walk = (parentId, depth, hiddenAncestor) => {
+        const siblings = childrenOf(parentId);
+        siblings.forEach((node, index) => {
+          const archived = !!node.archived_at || hiddenAncestor;
+          if (archived && !showArchived) return;
+          const li = document.createElement('li');
+          li.className = 'row' + (archived ? ' archived' : '');
+          li.style.paddingLeft = `${depth * 20}px`;
+          const isGroup = GROUP_KINDS.includes(node.kind);
+          const meta = [
+            node.kind === 'task' ? `${node.xp} XP` : '',
+            node.week_number ? `Week ${node.week_number}` : '',
+            node.difficulty || '',
+          ].filter(Boolean).join(' · ');
+          li.innerHTML = `
+            <span class="kind">${PT.esc(node.kind)}</span>
+            <span class="title ${isGroup ? 'group' : ''}">${PT.esc(node.title)}</span>
+            <span class="meta">${PT.esc(meta)}</span>
+            <span class="actions"></span>`;
+          const actions = li.querySelector('.actions');
+          const add = (iconName, label, fn, disabled) => {
+            const b = document.createElement('button');
+            b.type = 'button';
+            b.className = 'icon-btn pt-needs-online';
+            b.title = label;
+            b.setAttribute('aria-label', `${label}: ${node.title}`);
+            b.innerHTML = PT.icon(iconName);
+            b.disabled = !!disabled;
+            b.addEventListener('click', fn);
+            actions.appendChild(b);
+          };
+          add('arrow-right', 'Move up', () => move(node, -1), index === 0);
+          actions.lastChild.style.transform = 'rotate(-90deg)';
+          add('arrow-right', 'Move down', () => move(node, 1), index === siblings.length - 1);
+          actions.lastChild.style.transform = 'rotate(90deg)';
+          if (isGroup && !node.archived_at) add('plus', 'Add inside', () => openEditor(null, node.id));
+          add('pencil', 'Edit', () => openEditor(node));
+          if (node.archived_at) add('rotate-ccw', 'Restore', () => setArchived(node, false));
+          else add('archive', 'Archive', () => setArchived(node, true));
+          tree.appendChild(li);
+          walk(node.id, depth + 1, archived);
+        });
+      };
+      walk(null, 0, false);
+      if (!tree.children.length) tree.innerHTML = '<li class="muted">No items yet. Use "Add item" to create a group or task.</li>';
+    }
+
+    async function move(node, direction) {
+      const siblings = childrenOf(node.parent_id);
+      const from = siblings.indexOf(node);
+      const to = from + direction;
+      if (to < 0 || to >= siblings.length) return;
+      [siblings[from], siblings[to]] = [siblings[to], siblings[from]];
+      try {
+        const updates = siblings
+          .map((n, i) => ({ n, order: (i + 1) * 10 }))
+          .filter(({ n, order }) => n.sort_order !== order);
+        for (const { n, order } of updates) {
+          await q(PT.client.from('tasks').update({ sort_order: order }).eq('id', n.id));
+          n.sort_order = order;
+        }
+        renderTree();
+      } catch (error) {
+        PT.toast(error.message, 'error');
+        await loadNodes();
+      }
+    }
+
+    async function setArchived(node, archive) {
+      if (archive && !confirm(`Archive "${node.title}"? It will be hidden from the tracker, including anything inside it. Earned XP is kept.`)) return;
+      try {
+        await q(PT.client.from('tasks').update({ archived_at: archive ? new Date().toISOString() : null }).eq('id', node.id));
+        PT.toast(archive ? 'Archived' : 'Restored');
+        await loadNodes();
+      } catch (error) {
+        PT.toast(error.message, 'error');
+      }
+    }
+
+    function fillParentOptions(node, selectedParent) {
+      const options = ['<option value="">Top level</option>'];
+      const walk = (parentId, depth) => {
+        childrenOf(parentId).forEach(n => {
+          if (!GROUP_KINDS.includes(n.kind) || n.archived_at) return;
+          if (node && isDescendant(n, node.id)) return;
+          options.push(`<option value="${PT.esc(n.id)}">${'\u00a0\u00a0'.repeat(depth)}${PT.esc(n.title)}</option>`);
+          walk(n.id, depth + 1);
+        });
+      };
+      walk(null, 0);
+      $('f-parent').innerHTML = options.join('');
+      $('f-parent').value = selectedParent || '';
+    }
+
+    function syncFormState() {
+      const kind = $('f-kind').value;
+      const isTask = kind === 'task';
+      $('f-xp').disabled = !isTask;
+      $('f-diff').disabled = !isTask;
+      if (!isTask) $('f-xp').value = 0;
+      $('f-time').disabled = kind !== 'week';
+      const parent = byId.get($('f-parent').value);
+      const inherited = parent && parent.week_number;
+      $('f-week').disabled = !!inherited;
+      if (inherited) $('f-week').value = parent.week_number;
+      $('week-hint').textContent = inherited ? '(from parent)' : '(optional)';
+      $('f-kind').disabled = !!(editing && nodes.some(n => n.parent_id === editing.id));
+    }
+
+    function openEditor(node, parentId) {
+      editing = node;
+      $('editor-error').hidden = true;
+      $('editor-title').textContent = node ? 'Edit item' : 'Add item';
+      const parent = node ? node.parent_id : parentId;
+      fillParentOptions(node, parent);
+      const siblings = childrenOf(parent || null);
+      const parentNode = parent ? byId.get(parent) : null;
+      $('f-kind').value = node ? node.kind : (parentNode && parentNode.kind === 'week' ? 'section' : parentNode ? 'task' : 'week');
+      $('f-title').value = node ? node.title : '';
+      $('f-desc').value = node ? node.description || '' : '';
+      $('f-xp').value = node ? node.xp : 25;
+      $('f-diff').value = node ? node.difficulty || '' : '';
+      $('f-week').value = node ? node.week_number || '' : (parentNode && parentNode.week_number) || '';
+      $('f-time').value = node ? node.time_estimate || '' : '';
+      $('f-sort').value = node ? node.sort_order : (siblings.length ? Math.max(...siblings.map(s => s.sort_order)) + 10 : 10);
+      syncFormState();
+      renderResources();
+      $('editor').showModal();
+      $('f-title').focus();
+    }
+
+    function renderResources() {
+      const box = $('resources');
+      box.hidden = !editing || editing.kind === 'divider';
+      if (box.hidden) return;
+      const list = $('res-list');
+      list.innerHTML = '';
+      const resources = (editing.task_resources || []).slice().sort((a, b) => a.sort_order - b.sort_order);
+      if (!resources.length) list.innerHTML = '<p class="muted">No links yet.</p>';
+      resources.forEach(r => {
+        const row = document.createElement('div');
+        row.className = 'res-row';
+        const a = document.createElement('a');
+        a.href = PT.safeUrl(r.url) || '#';
+        a.target = '_blank';
+        a.rel = 'noopener noreferrer';
+        a.textContent = r.title;
+        const del = document.createElement('button');
+        del.type = 'button';
+        del.className = 'icon-btn pt-needs-online';
+        del.setAttribute('aria-label', `Remove link ${r.title}`);
+        del.innerHTML = PT.icon('x');
+        del.addEventListener('click', async () => {
+          try {
+            await q(PT.client.from('task_resources').delete().eq('id', r.id));
+            editing.task_resources = editing.task_resources.filter(x => x.id !== r.id);
+            renderResources();
+          } catch (error) {
+            PT.toast(error.message, 'error');
+          }
+        });
+        row.append(a, del);
+        list.appendChild(row);
+      });
+    }
+
+    async function addResource() {
+      const title = $('res-title').value.trim();
+      const url = PT.safeUrl($('res-url').value.trim());
+      if (!title || !url) {
+        PT.toast('Enter a title and a full http(s) link', 'error');
+        return;
+      }
+      try {
+        const existing = editing.task_resources || [];
+        const order = existing.length ? Math.max(...existing.map(r => r.sort_order)) + 10 : 10;
+        const row = await q(PT.client.from('task_resources').insert({ task_id: editing.id, title, url, sort_order: order }).select('id, title, url, sort_order').single());
+        editing.task_resources = [...existing, row];
+        $('res-title').value = '';
+        $('res-url').value = '';
+        renderResources();
+      } catch (error) {
+        PT.toast(error.message, 'error');
+      }
+    }
+
+    async function saveEditor(event) {
+      event.preventDefault();
+      const kind = $('f-kind').value;
+      const title = $('f-title').value.trim();
+      const xp = kind === 'task' ? Math.round(Number($('f-xp').value) || 0) : 0;
+      const week = $('f-week').value ? Math.round(Number($('f-week').value)) : null;
+      const err = $('editor-error');
+      const fail = message => { err.textContent = message; err.hidden = false; };
+      if (!title) return fail('Title is required.');
+      if (xp < 0 || xp > 10000) return fail('XP must be between 0 and 10000.');
+      if (week !== null && (week < 1 || week > 520)) return fail('Week must be between 1 and 520.');
+
+      const payload = {
+        kind,
+        title,
+        parent_id: $('f-parent').value || null,
+        description: $('f-desc').value.trim() || null,
+        xp,
+        difficulty: kind === 'task' ? $('f-diff').value || null : null,
+        week_number: week,
+        time_estimate: kind === 'week' ? $('f-time').value.trim() || null : null,
+        sort_order: Math.max(0, Math.round(Number($('f-sort').value) || 0)),
+      };
+
+      $('editor-save').disabled = true;
+      try {
+        if (editing) {
+          await q(PT.client.from('tasks').update(payload).eq('id', editing.id));
+        } else {
+          await q(PT.client.from('tasks').insert({ ...payload, tracker_id: tracker.id }));
+        }
+        $('editor').close();
+        PT.toast('Saved');
+        await loadNodes();
+      } catch (error) {
+        fail(error.message);
+      } finally {
+        $('editor-save').disabled = false;
+      }
+    }
+
+    async function saveTracker(event) {
+      event.preventDefault();
+      const icon = $('tr-icon').value;
+      if (!PT.TRACKER_ICONS.includes(icon)) return;
+      try {
+        const changes = {
+          name: $('tr-name').value.trim(),
+          description: $('tr-desc').value.trim() || null,
+          icon,
+          sort_order: Math.max(0, Math.round(Number($('tr-sort').value) || 0)),
+        };
+        await q(PT.client.from('trackers').update(changes).eq('id', tracker.id));
+        Object.assign(tracker, changes);
+        $('tracker-select').selectedOptions[0].textContent = tracker.name;
+        PT.toast('Tracker saved');
+      } catch (error) {
+        PT.toast(error.message, 'error');
+      }
+    }
+
+    async function start() {
+      await PT.requireAuth();
+      PT.mountNav('#app');
+      $('add-root').innerHTML = PT.icon('plus') + '<span>Add item</span>';
+      $('res-add').innerHTML = PT.icon('plus') + '<span>Add link</span>';
+      $('editor-close').innerHTML = PT.icon('x');
+      try {
+        await loadTrackers();
+        if (!trackers.length) {
+          PT.showGate('You do not own any trackers yet. Create one in the Supabase SQL Editor with pt_admin_create_tracker.', true, [PT.link('Home', 'home', 'index.html')]);
+          return;
+        }
+        await selectTracker($('tracker-select').value);
+      } catch (error) {
+        PT.showGate(error.message, true, [PT.link('Home', 'home', 'index.html')]);
+        return;
+      }
+
+      $('tracker-select').addEventListener('change', e => selectTracker(e.target.value).catch(err => PT.toast(err.message, 'error')));
+      $('show-archived').addEventListener('change', renderTree);
+      $('add-root').addEventListener('click', () => openEditor(null, null));
+      $('f-kind').addEventListener('change', syncFormState);
+      $('f-parent').addEventListener('change', syncFormState);
+      $('editor-form').addEventListener('submit', saveEditor);
+      $('editor-cancel').addEventListener('click', () => $('editor').close());
+      $('editor-close').addEventListener('click', () => $('editor').close());
+      $('res-add').addEventListener('click', addResource);
+      $('tracker-form').addEventListener('submit', saveTracker);
+      PT.hideGate();
+    }
+
+    start();
+  </script>
+</body>
+</html>

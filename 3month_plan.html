@@ -1,0 +1,1428 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>12-Week Career Pivot Tracker</title>
+    <link rel="stylesheet" href="app.css">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        :root {
+            --color-primary: #1a1a1a;
+            --color-accent: #00d084;
+            --color-accent-hover: #00c273;
+            --color-success: #00d084;
+            --color-surface: #fefcf8;
+            --color-surface-secondary: #faf7f2;
+            --color-border: #e8dfd6;
+            --color-text-primary: #2d2d2d;
+            --color-text-secondary: #6b6b6b;
+            --color-text-tertiary: #9a9a9a;
+            --color-bg: #f5f1e8;
+            --pt-bg: #f5f1e8;
+            --pt-surface: #fefcf8;
+            --pt-fg: #2d2d2d;
+            --pt-muted: #6b6b6b;
+            --pt-border: #e8dfd6;
+            --pt-accent: #00a96b;
+            --pt-on-accent: #ffffff;
+            --pt-hover: #faf7f2;
+            --pt-danger: #b91c1c;
+        }
+
+        .item-xp {
+            font-size: 12px;
+            font-weight: 700;
+            color: var(--color-text-secondary);
+            white-space: nowrap;
+            flex-shrink: 0;
+        }
+
+        .item.completed .item-xp {
+            color: var(--color-accent);
+        }
+
+        .item-rejected {
+            font-size: 12px;
+            font-weight: 700;
+            color: #b91c1c;
+            white-space: nowrap;
+        }
+
+        .item input[type="checkbox"]:disabled {
+            cursor: not-allowed;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;
+            background: var(--color-bg);
+            min-height: 100vh;
+            padding: 24px 20px;
+            color: var(--color-text-primary);
+            line-height: 1.6;
+        }
+
+        .container {
+            max-width: 1000px;
+            margin: 0 auto;
+        }
+
+        /* Header */
+        header {
+            padding: 0 0 16px;
+            border-bottom: 1px solid var(--color-border);
+        }
+
+        h1 {
+            font-size: 28px;
+            font-weight: 700;
+            color: var(--color-primary);
+            margin-bottom: 6px;
+            letter-spacing: 0;
+            line-height: 1.2;
+        }
+
+        .subtitle {
+            font-size: 14px;
+            color: var(--color-text-secondary);
+            margin-bottom: 8px;
+            font-weight: 400;
+            letter-spacing: 0;
+        }
+
+        .plan-details summary {
+            width: fit-content;
+            min-height: 44px;
+            padding: 10px 0;
+            color: var(--color-text-secondary);
+            cursor: pointer;
+            font-size: 13px;
+            font-weight: 600;
+        }
+
+        .plan-details[open] summary {
+            margin-bottom: 4px;
+        }
+
+        .meta {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+        }
+
+        .badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 8px 16px;
+            background: var(--color-surface-secondary);
+            color: var(--color-text-primary);
+            border-radius: 8px;
+            font-size: 0.85em;
+            font-weight: 600;
+            border: 1px solid var(--color-border);
+            letter-spacing: 0.3px;
+            text-transform: uppercase;
+        }
+        
+        .badge:first-child {
+            border-color: var(--color-accent);
+            color: var(--color-accent);
+            background: rgba(0, 208, 132, 0.08);
+        }
+
+        /* Progress Bar */
+        .progress-section {
+            padding: 14px 0 20px;
+        }
+
+        .progress-label {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 6px;
+            font-size: 0.95em;
+        }
+
+        .progress-label > span:first-child {
+            color: var(--color-text-secondary);
+            font-weight: 600;
+            letter-spacing: 0.3px;
+            text-transform: uppercase;
+            font-size: 0.85em;
+        }
+
+        .progress-label > span:last-child {
+            font-weight: 700;
+            color: var(--color-accent);
+            font-size: 1.6em;
+            letter-spacing: 0;
+        }
+
+        .progress-bar {
+            width: 100%;
+            height: 6px;
+            background: var(--color-border);
+            border-radius: 3px;
+            overflow: hidden;
+            margin-bottom: 6px;
+        }
+
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, var(--color-accent) 0%, var(--color-accent-hover) 100%);
+            transition: width 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+            border-radius: 3px;
+            box-shadow: 0 0 12px rgba(0, 208, 132, 0.3);
+        }
+
+        .stats {
+            font-size: 0.9em;
+            color: var(--color-text-secondary);
+            font-weight: 500;
+        }
+        
+        .stats strong {
+            color: var(--color-accent);
+            font-weight: 700;
+        }
+
+        /* Timeline */
+        .timeline {
+            display: flex;
+            flex-direction: column;
+            gap: 14px;
+        }
+
+        .month-group {
+            display: flex;
+            flex-direction: column;
+            gap: 0;
+            min-width: 0;
+        }
+
+        .month-group[hidden] {
+            display: none;
+        }
+
+        .month-tabs {
+            display: grid;
+            grid-template-columns: repeat(3, minmax(0, 1fr));
+            border-bottom: 1px solid var(--color-border);
+            margin-bottom: 20px;
+        }
+
+        .month-tabs[hidden] {
+            display: none;
+        }
+
+        .month-tab {
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            gap: 2px;
+            min-height: 64px;
+            padding: 10px 4px;
+            border-radius: 0;
+            border-bottom: 3px solid transparent;
+            background: transparent;
+            color: var(--color-text-secondary);
+            font-size: 14px;
+            letter-spacing: 0;
+        }
+
+        .month-tab span {
+            font-size: 11px;
+            font-weight: 400;
+        }
+
+        .month-tab[aria-selected="true"] {
+            color: var(--color-primary);
+            border-bottom-color: var(--color-accent);
+        }
+
+        .month-tab:hover {
+            background: var(--color-surface-secondary);
+        }
+
+        .month-heading {
+            display: flex;
+            align-items: baseline;
+            justify-content: space-between;
+            flex-wrap: wrap;
+            gap: 4px 12px;
+            padding: 0 0 12px;
+        }
+
+        .month-heading h2 {
+            font-size: 18px;
+            line-height: 1.4;
+            color: var(--color-primary);
+            letter-spacing: 0;
+        }
+
+        .month-heading span {
+            font-size: 13px;
+            color: var(--color-text-secondary);
+        }
+
+        .week-card {
+            border-bottom: 1px solid var(--color-border);
+            overflow: hidden;
+        }
+
+        .week-card:hover {
+            border-color: rgba(0, 208, 132, 0.3);
+        }
+
+        .week-header {
+            padding: 20px 0;
+            cursor: pointer;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            transition: background 0.2s ease;
+            user-select: none;
+        }
+
+        .week-header:hover {
+            background: var(--color-surface-secondary);
+        }
+
+        .week-title-group {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+            flex: 1;
+            min-width: 0;
+        }
+
+        .week-number {
+            font-size: 13px;
+            font-weight: 600;
+            color: var(--color-text-secondary);
+            padding: 3px 0;
+            min-width: 32px;
+            text-align: center;
+            letter-spacing: 0;
+            text-transform: uppercase;
+            flex-shrink: 0;
+        }
+
+        .week-header h3 {
+            font-size: 1.1em;
+            font-weight: 600;
+            color: var(--color-primary);
+            margin: 0;
+            letter-spacing: 0;
+            overflow-wrap: anywhere;
+        }
+
+        .time-estimate {
+            font-size: 0.85em;
+            color: var(--color-text-secondary);
+            margin-left: auto;
+            margin-right: 20px;
+            font-weight: 600;
+            letter-spacing: 0.2px;
+            white-space: nowrap;
+        }
+
+        .week-header .toggle {
+            font-size: 1.1em;
+            color: var(--color-text-tertiary);
+            transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1), color 0.2s ease, background 0.2s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            width: 36px;
+            height: 36px;
+            border-radius: 6px;
+        }
+
+        .week-header:hover .toggle {
+            color: var(--color-accent);
+            background: rgba(0, 208, 132, 0.08);
+        }
+
+        .week-header.expanded .toggle {
+            transform: rotate(180deg);
+        }
+
+        .week-header .toggle::before {
+            content: "";
+            width: 8px;
+            height: 8px;
+            border-right: 1.5px solid currentColor;
+            border-bottom: 1.5px solid currentColor;
+            transform: translateY(-2px) rotate(45deg);
+        }
+
+        .week-content {
+            max-height: 0;
+            overflow: hidden;
+        }
+
+        .week-content.expanded {
+            max-height: none;
+            overflow: visible;
+            padding: 28px;
+            background: var(--color-surface-secondary);
+        }
+
+        /* Sections */
+        .section {
+            margin-bottom: 24px;
+        }
+
+        .section:last-child {
+            margin-bottom: 0;
+        }
+
+        .section-title {
+            font-size: 0.85em;
+            font-weight: 700;
+            color: var(--color-primary);
+            margin-bottom: 12px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            padding-bottom: 8px;
+            border-bottom: 2px solid rgba(0, 208, 132, 0.2);
+        }
+
+        .items-list {
+            list-style: none;
+            padding-left: 0;
+            display: flex;
+            flex-direction: column;
+            gap: 0;
+        }
+
+        /* Task Items */
+        .item {
+            padding: 8px 0;
+            display: flex;
+            align-items: flex-start;
+            gap: 12px;
+            transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+            border-bottom: 1px solid var(--color-border);
+        }
+
+        .item:hover {
+            background: linear-gradient(135deg, var(--color-surface) 0%, rgba(0, 208, 132, 0.02) 100%);
+            border-left-color: var(--color-accent);
+            border-color: rgba(0, 208, 132, 0.2);
+        }
+
+        .item.completed {
+            background: linear-gradient(135deg, rgba(0, 208, 132, 0.06) 0%, rgba(0, 208, 132, 0.02) 100%);
+            border-left-color: var(--color-accent);
+            border-color: rgba(0, 208, 132, 0.2);
+        }
+
+        .item.completed:hover {
+            background: linear-gradient(135deg, rgba(0, 208, 132, 0.1) 0%, rgba(0, 208, 132, 0.04) 100%);
+        }
+
+        .item input[type="checkbox"] {
+            width: 22px;
+            height: 22px;
+            margin-top: 11px;
+            cursor: pointer;
+            flex-shrink: 0;
+            accent-color: var(--color-accent);
+        }
+
+        .item.completed input[type="checkbox"] {
+            accent-color: var(--color-success);
+        }
+
+        .item label {
+            cursor: pointer;
+            flex: 1;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 16px;
+            min-width: 0;
+            min-height: 44px;
+            padding: 8px 0;
+        }
+
+        .item.completed label {
+            color: var(--color-text-tertiary);
+        }
+
+        .item.completed label .task-text {
+            text-decoration: line-through;
+        }
+
+        .task-text {
+            flex: 1;
+            min-width: 0;
+            overflow-wrap: anywhere;
+        }
+
+        .difficulty {
+            font-size: 0.65em;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-weight: 700;
+            white-space: nowrap;
+            flex-shrink: 0;
+            letter-spacing: 0.3px;
+            text-transform: uppercase;
+        }
+
+        .difficulty.easy {
+            background: rgba(0, 208, 132, 0.15);
+            color: #00a366;
+        }
+
+        .difficulty.medium {
+            background: rgba(255, 159, 64, 0.15);
+            color: #cc6600;
+        }
+
+        .difficulty.hard {
+            background: rgba(239, 68, 68, 0.15);
+            color: #b91c1c;
+        }
+
+        /* Resources */
+        .resources {
+            margin-top: 16px;
+            padding-top: 16px;
+            border-top: 1px solid rgba(0, 208, 132, 0.2);
+        }
+
+        .resources-label {
+            font-size: 0.75em;
+            font-weight: 700;
+            color: var(--color-text-secondary);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-bottom: 10px;
+            display: block;
+        }
+
+        .resources-list {
+            list-style: none;
+            padding: 0;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+        }
+
+        .resource-link {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            padding: 6px 12px;
+            background: var(--color-surface);
+            border: 1.5px solid var(--color-border);
+            border-radius: 6px;
+            font-size: 0.8em;
+            color: var(--color-accent);
+            text-decoration: none;
+            transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+            font-weight: 600;
+            white-space: normal;
+            letter-spacing: 0.2px;
+            min-height: 44px;
+            overflow-wrap: anywhere;
+            max-width: 100%;
+        }
+
+        .resource-link:hover {
+            background: linear-gradient(135deg, rgba(0, 208, 132, 0.1) 0%, rgba(0, 208, 132, 0.05) 100%);
+            color: var(--color-accent);
+            border-color: var(--color-accent);
+            box-shadow: 0 4px 12px rgba(0, 208, 132, 0.2);
+        }
+
+        .resource-link .pt-icon {
+            width: 14px;
+            height: 14px;
+        }
+
+        /* Controls */
+        .controls {
+            padding: 20px 0;
+            display: flex;
+            gap: 12px;
+            margin-top: 24px;
+            flex-wrap: wrap;
+            border-top: 1px solid var(--color-border);
+        }
+
+        button {
+            padding: 12px 24px;
+            border: none;
+            border-radius: 8px;
+            font-size: 0.9em;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            letter-spacing: 0.3px;
+            min-height: 48px;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, var(--color-accent) 0%, var(--color-accent-hover) 100%);
+            color: #ffffff;
+            box-shadow: 0 4px 12px rgba(0, 208, 132, 0.3);
+        }
+
+        .btn-primary:hover {
+            background: linear-gradient(135deg, var(--color-accent-hover) 0%, var(--color-accent) 100%);
+            box-shadow: 0 8px 20px rgba(0, 208, 132, 0.4);
+            transform: translateY(-2px);
+        }
+
+        .btn-primary:active {
+            transform: translateY(0);
+        }
+
+        .btn-secondary {
+            background: var(--color-surface-secondary);
+            color: var(--color-text-primary);
+            border: 1.5px solid var(--color-border);
+        }
+
+        .btn-secondary:hover {
+            background: var(--color-surface);
+            border-color: var(--color-accent);
+            color: var(--color-accent);
+        }
+
+        .header-title {
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) 44px;
+            align-items: start;
+            gap: 12px;
+            margin-bottom: 6px;
+        }
+
+        .header-title h1 {
+            margin-bottom: 0;
+        }
+
+        .icon-button {
+            width: 44px;
+            height: 44px;
+            min-height: 44px;
+            padding: 10px;
+            justify-content: center;
+            background: transparent;
+            color: var(--color-text-secondary);
+            flex-shrink: 0;
+        }
+
+        .icon-button:hover {
+            background: var(--color-surface-secondary);
+        }
+
+        .icon-button .pt-icon, .settings-action .pt-icon {
+            width: 20px;
+            height: 20px;
+            flex-shrink: 0;
+        }
+
+        .settings-popup {
+            margin: auto;
+            width: min(360px, calc(100% - 32px));
+            max-height: calc(100dvh - 32px);
+            overflow: auto;
+            padding: 16px;
+            border: 1px solid var(--color-border);
+            border-radius: 8px;
+            background: var(--color-surface);
+            color: var(--color-text-primary);
+            box-shadow: 0 16px 48px rgba(0, 0, 0, 0.16);
+        }
+
+        .settings-popup::backdrop {
+            background: rgba(0, 0, 0, 0.25);
+        }
+
+        .settings-heading {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px;
+            margin-bottom: 8px;
+        }
+
+        .settings-heading h2 {
+            font-size: 18px;
+            letter-spacing: 0;
+        }
+
+        .settings-action {
+            width: 100%;
+            padding: 16px 12px;
+            min-height: 56px;
+            gap: 12px;
+            background: transparent;
+            color: var(--color-text-primary);
+            font-size: 14px;
+            letter-spacing: 0;
+            text-align: left;
+        }
+
+        .settings-action:hover {
+            background: var(--color-surface-secondary);
+        }
+
+        .settings-action--danger {
+            color: #b91c1c;
+            border-top: 1px solid var(--color-border);
+            border-radius: 0;
+        }
+
+        /* Phase Dividers */
+        .phase-divider {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin: 16px 0 0;
+            padding: 0;
+            font-size: 13px;
+            font-weight: 500;
+            color: var(--color-text-secondary);
+            letter-spacing: 0;
+        }
+
+        .phase-divider .pt-icon {
+            width: 16px;
+            height: 16px;
+            color: var(--color-accent);
+        }
+
+        :focus-visible {
+            outline: 2px solid var(--color-primary);
+            outline-offset: 4px;
+        }
+
+        @media (max-width: 900px) {
+            body {
+                padding: 20px 24px;
+            }
+
+            .week-header {
+                padding: 16px 0;
+                display: grid;
+                grid-template-columns: minmax(0, 1fr) 44px;
+                gap: 4px 12px;
+            }
+
+            .week-title-group {
+                gap: 12px;
+                align-items: flex-start;
+            }
+
+            .week-number {
+                min-width: 32px;
+                padding: 2px 0;
+            }
+
+            .week-header h3 {
+                font-size: 16px;
+                line-height: 1.4;
+            }
+
+            .week-header .toggle {
+                grid-column: 2;
+                grid-row: 1 / 3;
+                width: 44px;
+                height: 44px;
+            }
+
+            .week-content.expanded {
+                padding: 16px;
+            }
+
+            .time-estimate {
+                grid-column: 1;
+                margin: 0 0 0 44px;
+                font-size: 12px;
+            }
+
+            .phase-divider {
+                margin: 16px 0 0;
+                padding: 0;
+                font-size: 13px;
+            }
+
+            .controls {
+                display: grid;
+                grid-template-columns: repeat(2, minmax(0, 1fr));
+                gap: 8px;
+            }
+
+            .controls button {
+                justify-content: center;
+                padding: 12px 8px;
+                font-size: 14px;
+            }
+        }
+
+        @media (max-width: 480px) {
+            body {
+                padding: 16px 12px;
+            }
+
+            h1 {
+                font-size: 22px;
+                line-height: 1.3;
+            }
+
+            header {
+                padding-bottom: 8px;
+            }
+
+            .subtitle {
+                font-size: 13px;
+                margin-bottom: 0;
+            }
+
+            .badge {
+                font-size: 11px;
+                padding: 6px 8px;
+            }
+
+            .timeline {
+                gap: 10px;
+            }
+
+            .week-header {
+                padding: 16px 0;
+                gap: 4px 4px;
+            }
+
+            .week-content.expanded {
+                padding: 12px;
+            }
+
+            .item label {
+                display: grid;
+                grid-template-columns: minmax(0, 1fr);
+                gap: 6px;
+            }
+
+            .difficulty {
+                justify-self: start;
+                font-size: 10px;
+            }
+
+            .progress-label > span:last-child {
+                font-size: 20px;
+            }
+
+            .progress-section {
+                padding: 10px 0 14px;
+            }
+
+            .progress-label {
+                line-height: 1.2;
+            }
+
+            .stats {
+                font-size: 12px;
+            }
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+            *, *::before, *::after {
+                transition: none !important;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <div class="header-title">
+                <h1 id="tracker-name">12-Week Career Pivot Tracker</h1>
+                <button class="icon-button" type="button" aria-label="Settings" title="Settings" aria-haspopup="dialog" aria-controls="settings-popup" onclick="document.getElementById('settings-popup').showModal()">
+                    <span data-icon="settings"></span>
+                </button>
+            </div>
+                <p class="subtitle" id="tracker-desc">Cloud & AI/ML · AI-200 Certification</p>
+            <details class="plan-details">
+                <summary>Plan details · 10-15 hrs/week</summary>
+                <div class="meta">
+                    <span class="badge">Azure (AZ-204 background)</span>
+                    <span class="badge">10-15 hrs/week</span>
+                    <span class="badge">Time Management Focus</span>
+                    <span class="badge">AI-200 Target</span>
+                </div>
+            </details>
+        </header>
+
+        <div class="progress-section">
+            <div class="progress-label">
+                <span>Overall Progress</span>
+                <span id="progress-text">0%</span>
+            </div>
+            <div class="progress-bar">
+                <div class="progress-fill" id="progress-fill"></div>
+            </div>
+            <div class="stats" id="stats"></div>
+        </div>
+
+        <div class="month-tabs" id="month-tabs" role="tablist" aria-label="Plan month"></div>
+
+        <div class="timeline" id="timeline"></div>
+
+        <div class="controls">
+            <button class="btn-primary" onclick="expandAll()">Expand All</button>
+            <button class="btn-secondary" onclick="collapseAll()">Collapse All</button>
+        </div>
+    </div>
+
+    <dialog class="settings-popup" id="settings-popup" aria-labelledby="settings-title">
+        <div class="settings-heading">
+            <h2 id="settings-title">Settings</h2>
+            <form method="dialog">
+                <button class="icon-button" aria-label="Close settings" title="Close settings" autofocus>
+                    <span data-icon="x"></span>
+                </button>
+            </form>
+        </div>
+        <button class="settings-action pt-needs-online" type="button" onclick="exportData()">
+            <span data-icon="download"></span>
+            Export Data
+        </button>
+        <button class="settings-action pt-needs-online" type="button" onclick="importFromBrowser()">
+            <span data-icon="upload"></span>
+            Import progress saved in this browser
+        </button>
+        <button class="settings-action settings-action--danger pt-needs-online" type="button" onclick="resetProgress()">
+            <span data-icon="rotate-ccw"></span>
+            Reset Progress
+        </button>
+    </dialog>
+
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="app.js"></script>
+    <script>
+        const TRACKER_SLUG = 'career-pivot';
+        const LEGACY_STORAGE_KEY = 'careerPivotProgress';
+        const MONTH_TITLES = ['Cloud foundations', 'Applied AI & exam prep', 'ML delivery & career'];
+
+        // Built from the tasks table: weeks hold sections, sections hold tasks, dividers are labels.
+        let planData = [];
+        let state = null;
+
+        function toItem(task) {
+            return { id: task.id, text: task.title, difficulty: task.difficulty, xp: task.xp };
+        }
+
+        function buildPlanData(roots) {
+            const items = [];
+            const unscheduled = [];
+            roots.forEach(node => {
+                if (node.kind === 'divider') {
+                    items.push({ phase: true, title: node.title, week: node.week_number });
+                    return;
+                }
+                if (node.kind === 'task') {
+                    unscheduled.push(node);
+                    return;
+                }
+                const sections = [];
+                const loose = node.children.filter(c => c.kind === 'task');
+                if (loose.length) sections.push({ title: 'Tasks', items: loose.map(toItem), resources: [] });
+                node.children.filter(c => c.kind !== 'task' && c.kind !== 'divider').forEach(section => {
+                    sections.push({
+                        title: section.title,
+                        items: section.children.filter(c => c.kind === 'task').map(toItem),
+                        resources: section.task_resources,
+                    });
+                });
+                if (node.task_resources.length) sections.push({ title: 'Resources', items: [], resources: node.task_resources });
+                items.push({ week: node.week_number, title: node.title, timeEstimate: node.time_estimate || '', sections });
+            });
+            if (unscheduled.length) {
+                items.push({ week: null, title: 'Other tasks', timeEstimate: '', sections: [{ title: 'Tasks', items: unscheduled.map(toItem), resources: [] }] });
+            }
+            return items;
+        }
+
+        async function loadPlan() {
+            const data = await PT.loadTracker(TRACKER_SLUG);
+            state = {
+                tracker: data.tracker,
+                canEdit: data.canEdit,
+                isCreator: data.isCreator,
+                tasks: data.tasks,
+                progress: data.progress,
+                trackerXp: data.trackerXp,
+            };
+            planData = buildPlanData(data.roots);
+            document.getElementById('tracker-name').textContent = data.tracker.name;
+            if (data.tracker.description) document.getElementById('tracker-desc').textContent = data.tracker.description;
+            document.title = data.tracker.name;
+        }
+
+        function setupSettingsPopup() {
+            const settingsPopup = document.getElementById('settings-popup');
+            settingsPopup.addEventListener('keydown', event => {
+                if (event.key === 'Escape') {
+                    event.preventDefault();
+                    settingsPopup.close();
+                }
+            });
+            settingsPopup.addEventListener('click', event => {
+                if (event.target !== settingsPopup) return;
+                const bounds = settingsPopup.getBoundingClientRect();
+                if (event.clientX < bounds.left || event.clientX > bounds.right ||
+                    event.clientY < bounds.top || event.clientY > bounds.bottom) {
+                    settingsPopup.close();
+                }
+            });
+        }
+
+        async function initializeUI() {
+            await PT.requireAuth();
+            PT.hydrateIcons();
+            try {
+                await loadPlan();
+            } catch (error) {
+                PT.showGate(error.message, true, [PT.link('Home', 'home', 'index.html'), PT.button('Sign out', 'log-out', PT.signOut)]);
+                return;
+            }
+            PT.mountNav('.container', { admin: state.isCreator ? `admin.html?t=${TRACKER_SLUG}` : null });
+            renderTimeline();
+            updateProgress();
+            setupSettingsPopup();
+            PT.hideGate();
+        }
+
+        function monthOf(week) {
+            return Math.max(1, Math.ceil(week / 4));
+        }
+
+        function renderMonthTabs(months) {
+            const tabs = document.getElementById('month-tabs');
+            tabs.innerHTML = '';
+            tabs.hidden = months.length < 2;
+            tabs.style.gridTemplateColumns = `repeat(${Math.max(1, months.length)}, minmax(0, 1fr))`;
+            months.forEach((monthNumber, position) => {
+                const tab = document.createElement('button');
+                tab.className = 'month-tab';
+                tab.type = 'button';
+                tab.id = `month-tab-${monthNumber}`;
+                tab.dataset.month = monthNumber;
+                tab.setAttribute('role', 'tab');
+                tab.setAttribute('aria-controls', `month-panel-${monthNumber}`);
+                tab.setAttribute('aria-selected', String(position === 0));
+                tab.tabIndex = position === 0 ? 0 : -1;
+                tab.textContent = `Month ${monthNumber}`;
+                const range = document.createElement('span');
+                range.textContent = `Weeks ${(monthNumber - 1) * 4 + 1}-${monthNumber * 4}`;
+                tab.appendChild(range);
+                tab.onclick = () => selectMonth(monthNumber);
+                tab.onkeydown = event => {
+                    let next;
+                    if (event.key === 'ArrowRight') next = months[(position + 1) % months.length];
+                    if (event.key === 'ArrowLeft') next = months[(position - 1 + months.length) % months.length];
+                    if (event.key === 'Home') next = months[0];
+                    if (event.key === 'End') next = months[months.length - 1];
+                    if (next) {
+                        event.preventDefault();
+                        selectMonth(next);
+                        document.getElementById(`month-tab-${next}`).focus();
+                    }
+                };
+                tabs.appendChild(tab);
+            });
+        }
+
+        function selectMonth(monthNumber) {
+            document.querySelectorAll('.month-tab').forEach(tab => {
+                const month = Number(tab.dataset.month);
+                const selected = month === monthNumber;
+                tab.setAttribute('aria-selected', String(selected));
+                tab.tabIndex = selected ? 0 : -1;
+                const panel = document.getElementById(`month-panel-${month}`);
+                if (panel) panel.hidden = !selected;
+            });
+        }
+
+        function getMonthGroup(timeline, monthGroups, monthNumber) {
+            if (monthGroups.has(monthNumber)) return monthGroups.get(monthNumber);
+            const monthGroup = document.createElement('section');
+            monthGroup.className = 'month-group';
+            monthGroup.id = `month-panel-${monthNumber}`;
+            monthGroup.setAttribute('role', 'tabpanel');
+            monthGroup.setAttribute('aria-labelledby', `month-tab-${monthNumber}`);
+            monthGroup.tabIndex = 0;
+            monthGroup.hidden = monthGroups.size > 0;
+
+            const monthHeading = document.createElement('div');
+            monthHeading.className = 'month-heading';
+
+            const monthTitle = document.createElement('h2');
+            monthTitle.id = `month-${monthNumber}`;
+            monthTitle.textContent = MONTH_TITLES[monthNumber - 1] || `Month ${monthNumber}`;
+
+            const weekRange = document.createElement('span');
+            weekRange.textContent = `Weeks ${(monthNumber - 1) * 4 + 1}-${monthNumber * 4}`;
+
+            monthHeading.appendChild(monthTitle);
+            monthHeading.appendChild(weekRange);
+            monthGroup.appendChild(monthHeading);
+            timeline.appendChild(monthGroup);
+            monthGroups.set(monthNumber, monthGroup);
+            return monthGroup;
+        }
+
+        function renderTimeline() {
+            const timeline = document.getElementById('timeline');
+            timeline.innerHTML = '';
+            const monthGroups = new Map();
+            let currentMonth = 1;
+
+            if (!planData.length) {
+                const empty = document.createElement('p');
+                empty.className = 'stats';
+                empty.textContent = 'No tasks yet. Add some on the Manage tasks page.';
+                timeline.appendChild(empty);
+            }
+
+            planData.forEach((item, index) => {
+                if (item.week) currentMonth = monthOf(item.week);
+                const monthGroup = getMonthGroup(timeline, monthGroups, currentMonth);
+
+                if (item.phase) {
+                    const divider = document.createElement('div');
+                    divider.className = 'phase-divider';
+                    divider.appendChild(PT.iconEl('check-circle'));
+                    divider.appendChild(document.createTextNode(item.title));
+                    monthGroup.appendChild(divider);
+                    return;
+                }
+
+                const weekCard = document.createElement('div');
+                weekCard.className = 'week-card';
+                weekCard.id = `week-${index}`;
+
+                const weekHeader = document.createElement('div');
+                weekHeader.className = 'week-header';
+                weekHeader.setAttribute('role', 'button');
+                weekHeader.tabIndex = 0;
+                weekHeader.setAttribute('aria-expanded', 'false');
+                weekHeader.setAttribute('aria-controls', `content-${index}`);
+                weekHeader.onclick = () => toggleWeek(index);
+                weekHeader.onkeydown = event => {
+                    if (event.key === 'Enter' || event.key === ' ') {
+                        event.preventDefault();
+                        toggleWeek(index);
+                    }
+                };
+
+                const titleGroup = document.createElement('div');
+                titleGroup.className = 'week-title-group';
+
+                const weekNumber = document.createElement('div');
+                weekNumber.className = 'week-number';
+                weekNumber.textContent = item.week ? String(item.week).padStart(2, '0') : '--';
+
+                const weekTitle = document.createElement('h3');
+                weekTitle.textContent = item.title;
+
+                titleGroup.appendChild(weekNumber);
+                titleGroup.appendChild(weekTitle);
+
+                const timeEstimate = document.createElement('div');
+                timeEstimate.className = 'time-estimate';
+                timeEstimate.textContent = item.timeEstimate;
+
+                const toggle = document.createElement('span');
+                toggle.className = 'toggle';
+                toggle.setAttribute('aria-hidden', 'true');
+
+                weekHeader.appendChild(titleGroup);
+                weekHeader.appendChild(timeEstimate);
+                weekHeader.appendChild(toggle);
+
+                const weekContent = document.createElement('div');
+                weekContent.className = 'week-content';
+                weekContent.id = `content-${index}`;
+                weekContent.hidden = true;
+
+                item.sections.forEach((section, sectionIndex) => {
+                    const sectionDiv = document.createElement('div');
+                    sectionDiv.className = 'section';
+
+                    const sectionTitle = document.createElement('div');
+                    sectionTitle.className = 'section-title';
+                    sectionTitle.textContent = section.title;
+
+                    const itemsList = document.createElement('ul');
+                    itemsList.className = 'items-list';
+
+                    section.items.forEach(taskItem => {
+                        const li = document.createElement('li');
+                        li.className = 'item';
+                        li.id = `item-${taskItem.id}`;
+
+                        const checkbox = document.createElement('input');
+                        checkbox.type = 'checkbox';
+                        checkbox.id = `checkbox-${taskItem.id}`;
+                        checkbox.className = 'pt-needs-online';
+                        checkbox.onchange = () => toggleTask(taskItem, checkbox, li);
+
+                        const label = document.createElement('label');
+                        label.htmlFor = checkbox.id;
+                        const taskText = document.createElement('span');
+                        taskText.className = 'task-text';
+                        taskText.textContent = taskItem.text;
+                        label.appendChild(taskText);
+
+                        const status = document.createElement('span');
+                        status.className = 'item-status';
+                        label.appendChild(status);
+
+                        if (taskItem.difficulty) {
+                            const diffBadge = document.createElement('span');
+                            diffBadge.className = `difficulty ${taskItem.difficulty}`;
+                            diffBadge.textContent = taskItem.difficulty;
+                            label.appendChild(diffBadge);
+                        }
+
+                        const xp = document.createElement('span');
+                        xp.className = 'item-xp';
+                        xp.textContent = `+${taskItem.xp} XP`;
+                        label.appendChild(xp);
+
+                        li.appendChild(checkbox);
+                        li.appendChild(label);
+                        itemsList.appendChild(li);
+                        applyItemState(li, checkbox, taskItem.id);
+                    });
+
+                    sectionDiv.appendChild(sectionTitle);
+                    if (section.items.length) sectionDiv.appendChild(itemsList);
+
+                    const resources = (section.resources || []).filter(r => PT.safeUrl(r.url));
+                    if (resources.length > 0) {
+                        const resourcesDiv = document.createElement('div');
+                        resourcesDiv.className = 'resources';
+
+                        const resourcesLabel = document.createElement('span');
+                        resourcesLabel.className = 'resources-label';
+                        resourcesLabel.textContent = 'Resources';
+
+                        const resourcesList = document.createElement('ul');
+                        resourcesList.className = 'resources-list';
+
+                        resources.forEach(resource => {
+                            const li = document.createElement('li');
+                            const link = document.createElement('a');
+                            link.className = 'resource-link';
+                            link.href = PT.safeUrl(resource.url);
+                            link.target = '_blank';
+                            link.rel = 'noopener noreferrer';
+                            link.appendChild(PT.iconEl('external-link'));
+                            link.appendChild(document.createTextNode(resource.title));
+                            li.appendChild(link);
+                            resourcesList.appendChild(li);
+                        });
+
+                        resourcesDiv.appendChild(resourcesLabel);
+                        resourcesDiv.appendChild(resourcesList);
+                        sectionDiv.appendChild(resourcesDiv);
+                    }
+
+                    weekContent.appendChild(sectionDiv);
+                });
+
+                weekCard.appendChild(weekHeader);
+                weekCard.appendChild(weekContent);
+                monthGroup.appendChild(weekCard);
+            });
+            renderMonthTabs(Array.from(monthGroups.keys()));
+        }
+
+        function toggleWeek(index) {
+            const header = document.querySelector(`#week-${index} .week-header`);
+            const content = document.getElementById(`content-${index}`);
+
+            if (header) {
+                header.classList.toggle('expanded');
+                content.classList.toggle('expanded');
+                content.hidden = !header.classList.contains('expanded');
+                header.setAttribute('aria-expanded', String(!content.hidden));
+            }
+        }
+
+        function toggleItemClass(element, isChecked) {
+            if (isChecked) {
+                element.classList.add('completed');
+            } else {
+                element.classList.remove('completed');
+            }
+        }
+
+        function expandAll() {
+            planData.forEach((item, index) => {
+                if (!item.phase) {
+                    const header = document.querySelector(`#week-${index} .week-header`);
+                    const content = document.getElementById(`content-${index}`);
+                    if (header && !header.classList.contains('expanded')) {
+                        header.classList.add('expanded');
+                        content.classList.add('expanded');
+                        content.hidden = false;
+                        header.setAttribute('aria-expanded', 'true');
+                    }
+                }
+            });
+        }
+
+        function collapseAll() {
+            planData.forEach((item, index) => {
+                if (!item.phase) {
+                    const header = document.querySelector(`#week-${index} .week-header`);
+                    const content = document.getElementById(`content-${index}`);
+                    if (header && header.classList.contains('expanded')) {
+                        header.classList.remove('expanded');
+                        content.classList.remove('expanded');
+                        content.hidden = true;
+                        header.setAttribute('aria-expanded', 'false');
+                    }
+                }
+            });
+        }
+
+        function applyItemState(li, checkbox, taskId) {
+            const entry = state.progress.get(taskId);
+            const status = entry ? entry.status : null;
+            checkbox.checked = status === 'approved' || status === 'pending';
+            checkbox.disabled = !state.canEdit || (status === 'approved' && !state.tracker.allow_uncheck);
+            toggleItemClass(li, status === 'approved');
+            const slot = li.querySelector('.item-status');
+            slot.innerHTML = '';
+            if (status === 'pending') slot.innerHTML = `<span class="pt-pending-badge">${PT.icon('clock')}Awaiting approval</span>`;
+            if (status === 'rejected') slot.innerHTML = '<span class="item-rejected">Sent back</span>';
+        }
+
+        async function toggleTask(task, checkbox, li) {
+            const wantDone = checkbox.checked;
+            checkbox.disabled = true;
+            try {
+                if (wantDone) {
+                    const result = await PT.completeTask(task.id);
+                    state.progress.set(task.id, { task_id: task.id, status: result.status, awarded_xp: result.awarded_xp ?? null });
+                    if (result.changed && result.status === 'approved') {
+                        state.trackerXp += result.awarded_xp || 0;
+                        PT.toast(`+${result.awarded_xp || 0} XP`);
+                    }
+                    if (result.status === 'pending') PT.toast('Sent for approval');
+                } else {
+                    const result = await PT.uncompleteTask(task.id);
+                    state.progress.delete(task.id);
+                    if (result.refunded_xp) {
+                        state.trackerXp -= result.refunded_xp;
+                        PT.toast(`-${result.refunded_xp} XP`);
+                    }
+                }
+            } catch (error) {
+                PT.toast(error.message, 'error');
+            }
+            applyItemState(li, checkbox, task.id);
+            updateProgress();
+        }
+
+        function updateProgress() {
+            const total = state.tasks.length;
+            const statusOf = task => (state.progress.get(task.id) || {}).status;
+            const done = state.tasks.filter(task => statusOf(task) === 'approved').length;
+            const pending = state.tasks.filter(task => statusOf(task) === 'pending').length;
+            const percentage = total ? Math.round((done / total) * 100) : 0;
+
+            document.getElementById('progress-fill').style.width = percentage + '%';
+            document.getElementById('progress-text').textContent = percentage + '%';
+
+            const stats = document.getElementById('stats');
+            stats.innerHTML = `<strong>${done} of ${total}</strong> tasks completed · <strong>${Number(state.trackerXp).toLocaleString()} XP</strong>` +
+                (pending ? ` · ${pending} awaiting approval` : '');
+        }
+
+        async function resetProgress() {
+            if (!confirm('Reset all progress? This removes this tracker\'s XP from your Life Level.')) return;
+            try {
+                await PT.resetTracker(state.tracker.id);
+                await loadPlan();
+                renderTimeline();
+                updateProgress();
+                document.getElementById('settings-popup').close();
+                PT.toast('Progress reset');
+            } catch (error) {
+                PT.toast(error.message, 'error');
+            }
+        }
+
+        function exportData() {
+            PT.download('career-pivot-progress.json', {
+                exportDate: new Date().toISOString(),
+                tracker: state.tracker.slug,
+                xp: state.trackerXp,
+                completed: state.tasks
+                    .filter(task => state.progress.has(task.id))
+                    .map(task => ({
+                        id: task.id,
+                        legacyKey: task.legacy_key,
+                        title: task.title,
+                        status: state.progress.get(task.id).status,
+                    })),
+            });
+        }
+
+        // Imports checkboxes saved by the old browser-only version of this page.
+        async function importFromBrowser() {
+            let saved = null;
+            try {
+                saved = JSON.parse(localStorage.getItem(LEGACY_STORAGE_KEY) || 'null');
+            } catch {
+                saved = null;
+            }
+            const keys = saved && typeof saved === 'object'
+                ? Object.keys(saved).filter(key => saved[key] === true && /^item-\d+-\d+-\d+$/.test(key))
+                : [];
+            if (!keys.length) {
+                PT.toast('No saved progress found in this browser', 'error');
+                return;
+            }
+            if (!confirm(`Import ${keys.length} completed task(s) saved in this browser? Tasks already done are skipped.`)) return;
+            try {
+                const result = await PT.importCompletions(state.tracker.id, keys);
+                await loadPlan();
+                renderTimeline();
+                updateProgress();
+                document.getElementById('settings-popup').close();
+                const unknown = result.unknown && result.unknown.length ? `, ${result.unknown.length} not recognised` : '';
+                PT.toast(`Imported ${result.imported}, already done ${result.already}${unknown}`);
+            } catch (error) {
+                PT.toast(error.message, 'error');
+            }
+        }
+
+        initializeUI();
+    </script>
+</body>
+</html>
