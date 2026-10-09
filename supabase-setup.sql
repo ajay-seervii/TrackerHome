@@ -269,6 +269,44 @@ create index if not exists xp_events_user_created_idx on public.xp_events(user_i
 create index if not exists xp_events_tracker_user_idx on public.xp_events(tracker_id, user_id);
 create unique index if not exists xp_events_legacy_once_uidx on public.xp_events(user_id, tracker_id) where reason = 'legacy_balance';
 
+-- ---------------------------------------------------------------------
+-- badges: add a badge with a single INSERT. Home evaluates each row's
+-- metric against threshold; tracker_* metrics need tracker_id.
+-- ---------------------------------------------------------------------
+create table if not exists public.badges (
+  id uuid primary key default gen_random_uuid(),
+  slug text not null unique,
+  name text not null,
+  description text not null,
+  icon text not null default 'award',
+  metric text not null,
+  threshold int not null,
+  tracker_id uuid references public.trackers(id) on delete cascade,
+  sort_order int not null default 0,
+  active boolean not null default true,
+  created_at timestamptz not null default now(),
+  constraint badges_metric_valid check (metric in (
+    'tasks_done', 'best_streak', 'current_streak', 'level', 'life_xp', 'today_xp',
+    'tracker_tasks_done', 'tracker_percent', 'tracker_xp')),
+  constraint badges_tracker_metric check ((metric like 'tracker\_%') = (tracker_id is not null)),
+  constraint badges_threshold_positive check (threshold > 0),
+  constraint badges_icon_format check (icon ~ '^[a-z-]{1,30}$'),
+  constraint badges_text_length check (char_length(name) between 1 and 40 and char_length(description) between 1 and 80)
+);
+
+insert into public.badges (slug, name, description, icon, metric, threshold, sort_order) values
+  ('first-quest', 'First Quest', 'Finish 1 task', 'star', 'tasks_done', 1, 10),
+  ('getting-going', 'Getting Going', 'Finish 10 tasks', 'check-circle', 'tasks_done', 10, 20),
+  ('grinder', 'Grinder', 'Finish 50 tasks', 'zap', 'tasks_done', 50, 30),
+  ('centurion', 'Centurion', 'Finish 100 tasks', 'trophy', 'tasks_done', 100, 40),
+  ('on-fire', 'On Fire', '3-day streak', 'flame', 'best_streak', 3, 50),
+  ('week-warrior', 'Week Warrior', '7-day streak', 'calendar', 'best_streak', 7, 60),
+  ('unstoppable', 'Unstoppable', '30-day streak', 'rocket', 'best_streak', 30, 70),
+  ('rising-star', 'Rising Star', 'Reach level 5', 'award', 'level', 5, 80),
+  ('veteran', 'Veteran', 'Reach level 10', 'crown', 'level', 10, 90),
+  ('thousand-club', 'Thousand Club', 'Earn 1,000 XP', 'sparkles', 'life_xp', 1000, 100)
+on conflict (slug) do nothing;
+
 -- =====================================================================
 -- Access helpers (used by RLS policies)
 -- =====================================================================
@@ -300,7 +338,7 @@ begin
   for r in
     select policyname, tablename from pg_policies
     where schemaname = 'public'
-      and tablename in ('users', 'trackers', 'tracker_access', 'progress', 'tasks', 'task_resources', 'task_progress', 'xp_events')
+      and tablename in ('users', 'trackers', 'tracker_access', 'progress', 'tasks', 'task_resources', 'task_progress', 'xp_events', 'badges')
   loop
     execute format('drop policy %I on public.%I', r.policyname, r.tablename);
   end loop;
@@ -314,6 +352,13 @@ alter table public.tasks enable row level security;
 alter table public.task_resources enable row level security;
 alter table public.task_progress enable row level security;
 alter table public.xp_events enable row level security;
+alter table public.badges enable row level security;
+
+revoke all on public.badges from anon;
+revoke insert, update, delete on public.badges from authenticated;
+grant select on public.badges to authenticated;
+create policy badges_select on public.badges for select to authenticated
+  using (public.pt_is_approved());
 
 revoke all on public.users, public.trackers, public.tracker_access, public.progress,
   public.tasks, public.task_resources, public.task_progress, public.xp_events from anon;
@@ -770,6 +815,7 @@ declare
   uid uuid := auth.uid();
   me public.users;
   today date;
+  week_start date;
 begin
   if uid is null then
     raise exception 'Not signed in' using errcode = '28000';
@@ -779,6 +825,8 @@ begin
     return jsonb_build_object('approved', false, 'email', auth.jwt() ->> 'email');
   end if;
   today := public.pt__user_today(uid);
+  -- ISO weeks start on Monday.
+  week_start := date_trunc('week', today)::date;
 
   return jsonb_build_object(
     'approved', true,
@@ -790,11 +838,22 @@ begin
     'today_xp', (select coalesce(sum(amount), 0) from public.xp_events
                  where user_id = uid and occurred_on = today and reason in ('task', 'achievement')),
     'week', (
-      select jsonb_agg(jsonb_build_object('date', d::date, 'done', exists (
-               select 1 from public.task_progress tp
-               where tp.user_id = uid and tp.status = 'approved'
-                 and (tp.completed_at at time zone me.timezone)::date = d::date)) order by d)
-      from generate_series((today - 6)::timestamp, today::timestamp, interval '1 day') d),
+      select jsonb_agg(jsonb_build_object(
+               'date', d::date, 'today', d::date = today, 'future', d::date > today,
+               'done', exists (
+                 select 1 from public.task_progress tp
+                 where tp.user_id = uid and tp.status = 'approved'
+                   and (tp.completed_at at time zone me.timezone)::date = d::date)) order by d)
+      from generate_series(week_start::timestamp, (week_start + 6)::timestamp, interval '1 day') d),
+    'badges', (
+      select coalesce(jsonb_agg(jsonb_build_object(
+               'slug', b.slug, 'name', b.name, 'description', b.description, 'icon', b.icon,
+               'metric', b.metric, 'threshold', b.threshold, 'tracker_id', b.tracker_id)
+             order by b.sort_order, b.created_at), '[]'::jsonb)
+      from public.badges b
+      where b.active
+        and (b.tracker_id is null
+             or exists (select 1 from public.tracker_access ba where ba.tracker_id = b.tracker_id and ba.user_id = uid))),
     'is_creator', exists (select 1 from public.trackers where created_by = uid),
     'trackers', (
       select coalesce(jsonb_agg(to_jsonb(x) order by x.sort_order, x.name), '[]'::jsonb) from (
@@ -1337,3 +1396,14 @@ commit;
 --      'you@example.com', 'standard', null, 'star', true, true);
 --    select pt_admin_grant('arjun-goals', 'child@example.com', 'member');
 --    Then add tasks for it on the Manage Tasks page.
+--
+-- Adding a badge (no code or table changes needed):
+--    metric: tasks_done, best_streak, current_streak, level, life_xp, today_xp,
+--            tracker_tasks_done, tracker_percent, tracker_xp (tracker_* also need tracker_id)
+--    icon: any icon name from app.js, e.g. star, trophy, flame, rocket, crown, zap, heart, book
+--    insert into badges (slug, name, description, icon, metric, threshold, sort_order)
+--    values ('marathon', 'Marathon', '14-day streak', 'rocket', 'best_streak', 14, 65);
+--    insert into badges (slug, name, description, icon, metric, threshold, tracker_id, sort_order)
+--    values ('godot-done', 'Game Dev', 'Finish the Godot game', 'gamepad', 'tracker_percent', 100,
+--            (select id from trackers where slug = 'godot'), 110);
+--    Hide one without deleting it: update badges set active = false where slug = 'marathon';

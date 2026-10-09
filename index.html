@@ -98,6 +98,7 @@
     .day.done i .pt-icon { width: 16px; height: 16px; }
     .day.today { color: var(--pt-fg); }
     .day.today i { border-color: var(--gold); }
+    .day.future { opacity: 0.4; }
 
     /* Quests */
     .quests { list-style: none; display: flex; flex-direction: column; gap: 10px; }
@@ -280,18 +281,22 @@
     const DAILY_GOAL = 50;
     const RANKS = [[1, 'Novice'], [3, 'Apprentice'], [5, 'Adventurer'], [8, 'Veteran'], [12, 'Champion'], [16, 'Master'], [20, 'Legend']];
     const COLORS = ['#8b5cf6', '#38bdf8', '#34d399', '#ff8a3d', '#ff5ca8', '#ffc847'];
-    const BADGES = [
-      { icon: 'star', name: 'First Quest', desc: 'Finish 1 task', ok: d => d.tasks_done >= 1 },
-      { icon: 'check-circle', name: 'Getting Going', desc: 'Finish 10 tasks', ok: d => d.tasks_done >= 10 },
-      { icon: 'zap', name: 'Grinder', desc: 'Finish 50 tasks', ok: d => d.tasks_done >= 50 },
-      { icon: 'trophy', name: 'Centurion', desc: 'Finish 100 tasks', ok: d => d.tasks_done >= 100 },
-      { icon: 'flame', name: 'On Fire', desc: '3-day streak', ok: d => d.best_streak >= 3 },
-      { icon: 'calendar', name: 'Week Warrior', desc: '7-day streak', ok: d => d.best_streak >= 7 },
-      { icon: 'rocket', name: 'Unstoppable', desc: '30-day streak', ok: d => d.best_streak >= 30 },
-      { icon: 'award', name: 'Rising Star', desc: 'Reach level 5', ok: (d, level) => level >= 5 },
-      { icon: 'crown', name: 'Veteran', desc: 'Reach level 10', ok: (d, level) => level >= 10 },
-      { icon: 'sparkles', name: 'Thousand Club', desc: 'Earn 1,000 XP', ok: d => d.life_xp >= 1000 },
-    ];
+
+    function badgeValue(badge, data, level) {
+      const t = badge.tracker_id && data.trackers.find(x => x.id === badge.tracker_id);
+      switch (badge.metric) {
+        case 'tasks_done': return Number(data.tasks_done);
+        case 'best_streak': return Number(data.best_streak);
+        case 'current_streak': return Number(data.streak);
+        case 'level': return level;
+        case 'life_xp': return Number(data.life_xp);
+        case 'today_xp': return Number(data.today_xp);
+        case 'tracker_tasks_done': return t ? Number(t.done_tasks) : 0;
+        case 'tracker_percent': return t && t.total_tasks ? Math.round((t.done_tasks / t.total_tasks) * 100) : 0;
+        case 'tracker_xp': return t ? Number(t.xp) : 0;
+        default: return 0;
+      }
+    }
 
     function heading(id, iconName, text, count) {
       $(id).innerHTML = PT.icon(iconName) + `<span>${PT.esc(text)}</span>` + (count ? `<span class="count">${PT.esc(count)}</span>` : '');
@@ -384,10 +389,10 @@
     function renderWeek(week) {
       const host = $('week');
       host.innerHTML = '';
-      (week || []).forEach((day, i, all) => {
+      (week || []).forEach(day => {
         const date = new Date(`${day.date}T00:00:00`);
         const el = document.createElement('div');
-        el.className = 'day' + (day.done ? ' done' : '') + (i === all.length - 1 ? ' today' : '');
+        el.className = 'day' + (day.done ? ' done' : '') + (day.today ? ' today' : '') + (day.future ? ' future' : '');
         el.title = date.toLocaleDateString();
         el.innerHTML = `<i>${day.done ? PT.icon('flame') : ''}</i><span>${PT.esc(date.toLocaleDateString(undefined, { weekday: 'narrow' }))}</span>`;
         host.appendChild(el);
@@ -473,14 +478,19 @@
     }
 
     function renderBadges(data, level) {
-      const earned = BADGES.filter(b => b.ok(data, level)).length;
-      heading('badges-heading', 'award', 'Badges', `${earned} / ${BADGES.length}`);
-      $('badges').innerHTML = BADGES.map(b => {
-        const ok = b.ok(data, level);
-        return `<div class="badge ${ok ? '' : 'locked'}" title="${PT.esc(b.desc)}">
-          <div class="badge-icon">${PT.icon(ok ? b.icon : 'lock')}</div>
+      const badges = (data.badges || []).map(b => {
+        const value = badgeValue(b, data, level);
+        return { ...b, ok: value >= b.threshold, value };
+      });
+      const earned = badges.filter(b => b.ok).length;
+      heading('badges-heading', 'award', 'Badges', `${earned} / ${badges.length}`);
+      $('badges').innerHTML = badges.map(b => {
+        const iconName = /^[a-z-]+$/.test(b.icon) ? b.icon : 'award';
+        const progress = b.ok ? PT.esc(b.description) : `${Math.min(b.value, b.threshold).toLocaleString()} / ${Number(b.threshold).toLocaleString()}`;
+        return `<div class="badge ${b.ok ? '' : 'locked'}" title="${PT.esc(b.description)}">
+          <div class="badge-icon">${PT.icon(b.ok ? iconName : 'lock')}</div>
           <div class="badge-name">${PT.esc(b.name)}</div>
-          <div class="badge-desc">${PT.esc(b.desc)}</div>
+          <div class="badge-desc">${progress}</div>
         </div>`;
       }).join('');
     }
