@@ -41,6 +41,19 @@
     shield: '<path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10"/><path d="m9 12 2 2 4-4"/>',
     alert: '<circle cx="12" cy="12" r="10"/><line x1="12" x2="12" y1="8" y2="12"/><line x1="12" x2="12.01" y1="16" y2="16"/>',
     'wifi-off': '<path d="M12 20h.01"/><path d="M8.5 16.43a5 5 0 0 1 7 0"/><path d="M2 8.82a15 15 0 0 1 4.17-2.65"/><path d="M10.66 5c4.01-.36 8.14.9 11.34 3.76"/><path d="M16.85 11.25a10 10 0 0 1 2.22 1.68"/><path d="M5 13a10 10 0 0 1 5.24-2.76"/><path d="m2 2 20 20"/>',
+    award: '<circle cx="12" cy="8" r="6"/><path d="M15.48 12.89 17 22l-5-3-5 3 1.52-9.11"/>',
+    crown: '<path d="m2 4 3 12h14l3-12-6 7-4-7-4 7-6-7z"/><path d="M5 20h14"/>',
+    lock: '<rect width="18" height="11" x="3" y="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/>',
+    sparkles: '<path d="m12 3-1.9 5.8a2 2 0 0 1-1.3 1.3L3 12l5.8 1.9a2 2 0 0 1 1.3 1.3L12 21l1.9-5.8a2 2 0 0 1 1.3-1.3L21 12l-5.8-1.9a2 2 0 0 1-1.3-1.3Z"/>',
+    rocket: '<path d="M4.5 16.5c-1.5 1.26-2 5-2 5s3.74-.5 5-2c.71-.84.7-2.13-.09-2.91a2.18 2.18 0 0 0-2.91-.09z"/><path d="m12 15-3-3a22 22 0 0 1 2-3.95A12.88 12.88 0 0 1 22 2c0 2.72-.78 7.5-6 11a22.35 22.35 0 0 1-4 2z"/><path d="M9 12H4s.55-3.03 2-4c1.62-1.08 5 0 5 0"/><path d="M12 15v5s3.03-.55 4-2c1.08-1.62 0-5 0-5"/>',
+    calendar: '<rect width="18" height="18" x="3" y="4" rx="2" ry="2"/><line x1="16" x2="16" y1="2" y2="6"/><line x1="8" x2="8" y1="2" y2="6"/><line x1="3" x2="21" y1="10" y2="10"/>',
+    eye: '<path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/>',
+    list: '<line x1="8" x2="21" y1="6" y2="6"/><line x1="8" x2="21" y1="12" y2="12"/><line x1="8" x2="21" y1="18" y2="18"/><line x1="3" x2="3.01" y1="6" y2="6"/><line x1="3" x2="3.01" y1="12" y2="12"/><line x1="3" x2="3.01" y1="18" y2="18"/>',
+    'arrow-left': '<path d="m12 19-7-7 7-7"/><path d="M19 12H5"/>',
+    'arrow-up': '<path d="m5 12 7-7 7 7"/><path d="M12 19V5"/>',
+    'arrow-down': '<path d="M12 5v14"/><path d="m19 12-7 7-7-7"/>',
+    'chevron-right': '<path d="m9 18 6-6-6-6"/>',
+    sliders: '<line x1="4" x2="4" y1="21" y2="14"/><line x1="4" x2="4" y1="10" y2="3"/><line x1="12" x2="12" y1="21" y2="12"/><line x1="12" x2="12" y1="8" y2="3"/><line x1="20" x2="20" y1="21" y2="16"/><line x1="20" x2="20" y1="12" y2="3"/><line x1="2" x2="6" y1="14" y2="14"/><line x1="10" x2="14" y1="8" y2="8"/><line x1="18" x2="22" y1="16" y2="16"/>',
   };
 
   const TRACKER_ICONS = ['target', 'gamepad', 'briefcase', 'book', 'star', 'heart', 'code', 'trophy', 'zap', 'users'];
@@ -243,22 +256,98 @@
     });
   }
 
-  /* ---------- Shared navigation bar ---------- */
+  /* ---------- Shared navigation bar and settings sheet ---------- */
+
+  function initials(name) {
+    const parts = String(name || '?').replace(/@.*/, '').split(/[\s._-]+/).filter(Boolean);
+    return ((parts[0] || '?')[0] + (parts[1] ? parts[1][0] : '')).toUpperCase();
+  }
+
+  function timeZones(current) {
+    const zones = typeof Intl.supportedValuesOf === 'function' ? Intl.supportedValuesOf('timeZone') : [];
+    return Array.from(new Set(['UTC', current, ...zones].filter(Boolean)));
+  }
+
+  let sheet = null;
+  function openSettings() {
+    if (!sheet) {
+      sheet = document.createElement('dialog');
+      sheet.className = 'pt-sheet';
+      sheet.setAttribute('aria-labelledby', 'pt-sheet-title');
+      document.body.appendChild(sheet);
+      sheet.addEventListener('click', event => {
+        if (event.target === sheet) sheet.close();
+      });
+    }
+    const name = me.display_name || '';
+    const deviceTz = Intl.DateTimeFormat().resolvedOptions().timeZone;
+    sheet.innerHTML = `
+      <div class="pt-sheet-head">
+        <h2 id="pt-sheet-title">Settings</h2>
+        <button type="button" class="pt-icon-btn" data-close aria-label="Close settings">${icon('x')}</button>
+      </div>
+      <div class="pt-sheet-user">
+        <span class="pt-avatar">${esc(initials(name || me.email))}</span>
+        <div><strong>${esc(name || me.email)}</strong><span>${esc(me.email)}</span></div>
+      </div>
+      <form class="pt-sheet-form">
+        <label>Display name<input name="name" maxlength="60" autocomplete="nickname" value="${esc(name)}"></label>
+        <label>Time zone <small>Used to count streak days</small>
+          <select name="tz">${timeZones(me.timezone).map(z => `<option${z === me.timezone ? ' selected' : ''}>${esc(z)}</option>`).join('')}</select>
+        </label>
+        ${deviceTz && deviceTz !== me.timezone ? `<button type="button" class="pt-link-btn" data-device-tz>Use this device's time zone (${esc(deviceTz)})</button>` : ''}
+        <button type="submit" class="pt-btn pt-btn--primary pt-needs-online">Save</button>
+      </form>
+      <nav class="pt-sheet-links">
+        <a href="index.html">${icon('home')}<span>Home</span>${icon('chevron-right', 'pt-chev')}</a>
+        <a href="admin.html" data-manage hidden>${icon('sliders')}<span>Manage trackers</span>${icon('chevron-right', 'pt-chev')}</a>
+        <button type="button" data-signout class="pt-danger-link">${icon('log-out')}<span>Sign out</span></button>
+      </nav>`;
+    sheet.querySelector('[data-close]').addEventListener('click', () => sheet.close());
+    sheet.querySelector('[data-signout]').addEventListener('click', signOut);
+    const form = sheet.querySelector('form');
+    const deviceBtn = sheet.querySelector('[data-device-tz]');
+    if (deviceBtn) deviceBtn.addEventListener('click', () => {
+      const select = form.elements.tz;
+      if (![...select.options].some(o => o.value === deviceTz)) select.add(new Option(deviceTz, deviceTz));
+      select.value = deviceTz;
+      deviceBtn.remove();
+    });
+    form.addEventListener('submit', async event => {
+      event.preventDefault();
+      const changes = { display_name: form.elements.name.value.trim() || null, timezone: form.elements.tz.value };
+      try {
+        const { error } = await client.from('users').update(changes).eq('id', me.id);
+        if (error) throw new Error(friendlyError(error));
+        Object.assign(me, changes);
+        sheet.close();
+        toast('Settings saved');
+        document.dispatchEvent(new CustomEvent('pt:profile'));
+      } catch (error) {
+        toast(error.message, 'error');
+      }
+    });
+    client.from('trackers').select('id').eq('created_by', me.id).limit(1).then(({ data }) => {
+      const manage = sheet.querySelector('[data-manage]');
+      if (manage && data && data.length) manage.hidden = false;
+    });
+    sheet.showModal();
+  }
 
   function mountNav(target, options) {
     const opts = options || {};
     const nav = document.createElement('nav');
     nav.className = 'pt-nav';
     nav.setAttribute('aria-label', 'Account');
-    const name = me && (me.display_name || me.email);
     nav.innerHTML = `
-      ${opts.brand ? `<span class="pt-nav-brand">${icon('trophy')}<span>${esc(opts.brand)}</span></span>` : `<a class="pt-nav-link" href="index.html">${icon('home')}<span>Home</span></a>`}
+      ${opts.brand ? `<span class="pt-nav-brand">${icon('trophy')}<span>${esc(opts.brand)}</span></span>` : `<a class="pt-nav-link" href="index.html">${icon(opts.backIcon || 'home')}<span>${esc(opts.backLabel || 'Home')}</span></a>`}
       <span class="pt-nav-spacer"></span>
-      ${opts.admin ? `<a class="pt-nav-link" href="${esc(opts.admin)}">${icon('pencil')}<span>Manage tasks</span></a>` : ''}
-      <span class="pt-nav-user" title="${esc(me && me.email)}">${esc(name || '')}</span>
-      <span class="pt-nav-offline" hidden>${icon('wifi-off')}<span>Offline</span></span>`;
-    const out = button('Sign out', 'log-out', signOut, 'pt-nav-link');
-    nav.appendChild(out);
+      <span class="pt-nav-offline" hidden>${icon('wifi-off')}<span>Offline</span></span>
+      <span class="pt-nav-extra"></span>
+      <button type="button" class="pt-nav-settings" aria-label="Settings" title="Settings">
+        <span class="pt-avatar pt-avatar--sm">${esc(initials((me && (me.display_name || me.email)) || '?'))}</span>${icon('settings')}
+      </button>`;
+    nav.querySelector('.pt-nav-settings').addEventListener('click', openSettings);
     (typeof target === 'string' ? document.querySelector(target) : target).prepend(nav);
     const offline = nav.querySelector('.pt-nav-offline');
     const sync = () => {
@@ -298,8 +387,9 @@
     if (error) throw new Error(friendlyError(error));
     if (!tracker) throw new Error('This tracker was not found, or you do not have access to it.');
 
-    const [roleRes, tasksRes, progressRes, aggRes] = await Promise.all([
-      client.rpc('pt_tracker_role', { p_tracker: tracker.id }),
+    const [accessRes, tasksRes, progressRes, aggRes] = await Promise.all([
+      client.from('tracker_access').select('role, can_edit')
+        .eq('tracker_id', tracker.id).eq('user_id', me.id).maybeSingle(),
       client.from('tasks')
         .select('id, parent_id, kind, title, description, xp, difficulty, week_number, month_number, time_estimate, sort_order, legacy_key, archived_at, task_resources(id, title, url, sort_order)')
         .eq('tracker_id', tracker.id).is('archived_at', null)
@@ -309,7 +399,7 @@
       client.from('progress').select('level, current_xp, total_xp, unlocked_achievements, unlocked_skills')
         .eq('tracker_id', tracker.id).eq('user_id', me.id).maybeSingle(),
     ]);
-    for (const res of [roleRes, tasksRes, progressRes, aggRes]) {
+    for (const res of [accessRes, tasksRes, progressRes, aggRes]) {
       if (res.error) throw new Error(friendlyError(res.error));
     }
 
@@ -339,8 +429,9 @@
 
     return {
       tracker,
-      role: roleRes.data,
-      canEdit: roleRes.data === 'owner' || roleRes.data === 'member',
+      role: accessRes.data ? accessRes.data.role : null,
+      readOnly: !!(accessRes.data && accessRes.data.can_edit === false),
+      canEdit: !!accessRes.data && ['owner', 'member'].includes(accessRes.data.role) && accessRes.data.can_edit !== false,
       isCreator: tracker.created_by === me.id,
       roots,
       byId,
@@ -394,6 +485,8 @@
     requireAuth,
     watchSignOut,
     mountNav,
+    openSettings,
+    initials,
     showGate,
     hideGate,
     button,

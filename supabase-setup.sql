@@ -411,6 +411,17 @@ begin
   return n;
 end $$;
 
+create or replace function public.pt__best_streak(p_user uuid) returns int
+language sql stable security definer set search_path = public as $$
+  with tz as (select coalesce((select timezone from public.users where id = p_user), 'UTC') as z),
+  days as (
+    select distinct (tp.completed_at at time zone (select z from tz))::date as d
+    from public.task_progress tp
+    where tp.user_id = p_user and tp.status = 'approved'),
+  runs as (select d - (row_number() over (order by d))::int as grp from days)
+  select coalesce(max(c), 0)::int from (select count(*) as c from runs group by grp) x;
+$$;
+
 create or replace function public.pt__godot_phase_done(p_user uuid, p_tracker uuid, p_seed text) returns boolean
 language sql stable security definer set search_path = public as $$
   with phase as (select id from public.tasks where tracker_id = p_tracker and seed_key = p_seed)
@@ -758,6 +769,7 @@ language plpgsql stable security definer set search_path = public as $$
 declare
   uid uuid := auth.uid();
   me public.users;
+  today date;
 begin
   if uid is null then
     raise exception 'Not signed in' using errcode = '28000';
@@ -766,22 +778,43 @@ begin
   if not found then
     return jsonb_build_object('approved', false, 'email', auth.jwt() ->> 'email');
   end if;
+  today := public.pt__user_today(uid);
 
   return jsonb_build_object(
     'approved', true,
     'user', jsonb_build_object('id', uid, 'email', me.email, 'display_name', me.display_name, 'timezone', me.timezone),
     'life_xp', public.pt__life_xp(uid),
     'streak', public.pt__streak(uid),
+    'best_streak', public.pt__best_streak(uid),
+    'tasks_done', (select count(*) from public.task_progress where user_id = uid and status = 'approved'),
+    'today_xp', (select coalesce(sum(amount), 0) from public.xp_events
+                 where user_id = uid and occurred_on = today and reason in ('task', 'achievement')),
+    'week', (
+      select jsonb_agg(jsonb_build_object('date', d::date, 'done', exists (
+               select 1 from public.task_progress tp
+               where tp.user_id = uid and tp.status = 'approved'
+                 and (tp.completed_at at time zone me.timezone)::date = d::date)) order by d)
+      from generate_series((today - 6)::timestamp, today::timestamp, interval '1 day') d),
+    'is_creator', exists (select 1 from public.trackers where created_by = uid),
     'trackers', (
       select coalesce(jsonb_agg(to_jsonb(x) order by x.sort_order, x.name), '[]'::jsonb) from (
         select t.id, t.slug, t.name, t.description, t.page, t.icon, t.sort_order,
-               a.role, (t.created_by = uid) as is_creator, t.requires_approval,
+               a.role, coalesce(a.can_edit, true) as can_edit, (t.created_by = uid) as is_creator, t.requires_approval,
                (select count(*) from public.tasks k where k.tracker_id = t.id and k.kind = 'task' and k.archived_at is null) as total_tasks,
                (select count(*) from public.task_progress tp join public.tasks k on k.id = tp.task_id
                  where tp.tracker_id = t.id and tp.user_id = uid and tp.status = 'approved' and k.archived_at is null) as done_tasks,
                (select count(*) from public.task_progress tp where tp.tracker_id = t.id and tp.user_id = uid and tp.status = 'pending') as my_pending,
                (select coalesce(sum(e.amount), 0) from public.xp_events e where e.tracker_id = t.id and e.user_id = uid) as xp,
-               (select count(*) from public.task_progress tp where tp.tracker_id = t.id and tp.user_id <> uid and tp.status = 'pending' and a.role = 'guardian') as to_review
+               (select count(*) from public.task_progress tp where tp.tracker_id = t.id and tp.user_id <> uid and tp.status = 'pending' and a.role = 'guardian') as to_review,
+               (select jsonb_build_object('id', k.id, 'title', k.title, 'xp', k.xp)
+                  from public.tasks k
+                  left join public.tasks pk on pk.id = k.parent_id
+                  where k.tracker_id = t.id and k.kind = 'task' and k.archived_at is null
+                    and (pk.id is null or pk.archived_at is null)
+                    and not exists (select 1 from public.task_progress tp
+                                    where tp.task_id = k.id and tp.user_id = uid and tp.status in ('approved', 'pending'))
+                  order by coalesce(k.week_number, 0), coalesce(pk.sort_order, 0), k.sort_order, k.created_at
+                  limit 1) as next_task
         from public.trackers t
         join public.tracker_access a on a.tracker_id = t.id and a.user_id = uid
       ) x),
@@ -1178,6 +1211,67 @@ begin
   return jsonb_build_object('rows_migrated', migrated, 'unknown_task_ids', to_jsonb(unknown));
 end $$;
 
+-- =====================================================================
+-- Access management (tracker owner, from the Manage page)
+-- Levels: none, read (view only), write (complete tasks), review (approve members)
+-- =====================================================================
+create or replace function public.pt_manage_access(p_tracker uuid) returns jsonb
+language plpgsql stable security definer set search_path = public as $$
+declare
+  tr public.trackers;
+begin
+  if not public.pt_is_creator(p_tracker) then
+    raise exception 'Only the tracker owner can manage access' using errcode = '42501';
+  end if;
+  select * into tr from public.trackers where id = p_tracker;
+  return (
+    select coalesce(jsonb_agg(jsonb_build_object(
+        'user_id', u.id,
+        'name', coalesce(u.display_name, u.email),
+        'email', u.email,
+        'is_owner', u.id = tr.created_by,
+        'level', case
+          when a.id is null then 'none'
+          when a.role = 'guardian' then 'review'
+          when coalesce(a.can_edit, true) then 'write'
+          else 'read' end)
+      order by (u.id = tr.created_by) desc, coalesce(u.display_name, u.email)), '[]'::jsonb)
+    from public.users u
+    left join public.tracker_access a on a.tracker_id = p_tracker and a.user_id = u.id);
+end $$;
+
+create or replace function public.pt_manage_set_access(p_tracker uuid, p_user uuid, p_level text) returns jsonb
+language plpgsql security definer set search_path = public as $$
+declare
+  tr public.trackers;
+begin
+  if not public.pt_is_creator(p_tracker) then
+    raise exception 'Only the tracker owner can manage access' using errcode = '42501';
+  end if;
+  select * into tr from public.trackers where id = p_tracker;
+  if p_user = tr.created_by then
+    raise exception 'The owner''s access cannot be changed';
+  end if;
+  if not exists (select 1 from public.users where id = p_user) then
+    raise exception 'That person is not approved yet';
+  end if;
+  if p_level not in ('none', 'read', 'write', 'review') then
+    raise exception 'Unknown access level';
+  end if;
+  if p_level = 'review' and not tr.requires_approval then
+    raise exception 'Reviewers are only used on trackers that need approval';
+  end if;
+
+  if p_level = 'none' then
+    delete from public.tracker_access where tracker_id = p_tracker and user_id = p_user;
+  else
+    insert into public.tracker_access (tracker_id, user_id, role, can_edit)
+    values (p_tracker, p_user, case when p_level = 'review' then 'guardian' else 'member' end, p_level <> 'read')
+    on conflict (tracker_id, user_id) do update set role = excluded.role, can_edit = excluded.can_edit;
+  end if;
+  return jsonb_build_object('level', p_level);
+end $$;
+
 -- ---------------------------------------------------------------------
 -- Function permissions: only the pt_* functions below are browser-callable
 -- ---------------------------------------------------------------------
@@ -1204,6 +1298,8 @@ grant execute on function public.pt_review_completion(uuid, boolean) to authenti
 grant execute on function public.pt_godot_unlock_skill(uuid, text) to authenticated;
 grant execute on function public.pt_reset_tracker(uuid) to authenticated;
 grant execute on function public.pt_import_completions(uuid, text[]) to authenticated;
+grant execute on function public.pt_manage_access(uuid) to authenticated;
+grant execute on function public.pt_manage_set_access(uuid, uuid, text) to authenticated;
 
 commit;
 

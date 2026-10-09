@@ -3,68 +3,106 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Manage tasks</title>
+  <title>Manage trackers</title>
+  <meta name="theme-color" content="#0d0e1c">
   <link rel="stylesheet" href="app.css">
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
 
     :root {
-      --pt-bg: #f5f5f4;
-      --pt-surface: #ffffff;
-      --pt-fg: #1c1917;
-      --pt-muted: #78716c;
-      --pt-border: #e7e5e4;
-      --pt-accent: #0f766e;
+      --pt-bg: #0d0e1c;
+      --pt-surface: #171932;
+      --pt-fg: #f2f3ff;
+      --pt-muted: #9ca3cf;
+      --pt-border: #272a52;
+      --pt-accent: #8b5cf6;
       --pt-on-accent: #ffffff;
-      --pt-hover: #f5f5f4;
-      --pt-danger: #b91c1c;
+      --pt-hover: #1f2245;
+      --pt-danger: #ff6b81;
+      --gold: #ffc847;
+      --mint: #34d399;
+      --sky: #38bdf8;
     }
 
     body {
       font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;
-      background: var(--pt-bg);
+      background: radial-gradient(900px 500px at 10% -10%, rgba(139, 92, 246, 0.2), transparent 60%), var(--pt-bg);
+      background-attachment: fixed;
       color: var(--pt-fg);
       line-height: 1.5;
-      padding: 24px 20px 48px;
+      padding: 16px 16px 48px;
       min-height: 100vh;
     }
 
-    .container { max-width: 1000px; margin: 0 auto; }
-    h1 { font-size: 24px; letter-spacing: 0; margin-bottom: 4px; }
+    .container { max-width: 880px; margin: 0 auto; }
+    h1 { font-size: 24px; letter-spacing: 0; }
     h2 { font-size: 16px; letter-spacing: 0; margin-bottom: 12px; }
-    .muted { color: var(--pt-muted); font-size: 14px; }
+    .muted { color: var(--pt-muted); font-size: 13px; }
+    .card { background: var(--pt-surface); border: 1px solid var(--pt-border); border-radius: 18px; padding: 16px; margin-bottom: 16px; }
 
-    .card { background: var(--pt-surface); border: 1px solid var(--pt-border); border-radius: 12px; padding: 16px 20px; margin-bottom: 20px; }
+    .page-head { display: flex; align-items: center; gap: 12px; margin-bottom: 14px; }
+    .page-head .pt-icon { width: 28px; height: 28px; color: var(--pt-accent); }
 
-    .toolbar { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin: 16px 0; }
+    label.field { display: flex; flex-direction: column; gap: 6px; font-size: 13px; font-weight: 700; color: var(--pt-muted); min-width: 0; }
+    input, select, textarea { min-height: 44px; padding: 8px 12px; border: 1px solid var(--pt-border); border-radius: 10px; font: inherit; font-size: 15px; color: var(--pt-fg); background: var(--pt-bg); width: 100%; }
+    textarea { min-height: 80px; resize: vertical; }
+    input:disabled, select:disabled { opacity: 0.55; }
+    .check { display: inline-flex; align-items: center; gap: 8px; font-size: 14px; min-height: 44px; cursor: pointer; color: var(--pt-muted); }
+    .check input { width: 18px; height: 18px; min-height: 0; accent-color: var(--pt-accent); }
+
+    .picker { margin-bottom: 14px; }
+    .picker select { font-weight: 700; font-size: 16px; }
+
+    .tabs { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 4px; padding: 4px; margin-bottom: 16px; border-radius: 14px; background: var(--pt-surface); border: 1px solid var(--pt-border); }
+    .tabs button { display: flex; align-items: center; justify-content: center; gap: 6px; min-height: 44px; border: none; border-radius: 10px; background: transparent; color: var(--pt-muted); font: inherit; font-size: 14px; font-weight: 700; cursor: pointer; }
+    .tabs button[aria-selected="true"] { background: var(--pt-accent); color: #fff; box-shadow: 0 6px 18px rgba(139, 92, 246, 0.35); }
+    .tabs .pt-icon { width: 16px; height: 16px; }
+
+    .toolbar { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-bottom: 10px; }
     .toolbar .grow { flex: 1; }
-
-    label.field { display: flex; flex-direction: column; gap: 4px; font-size: 13px; font-weight: 600; color: var(--pt-muted); min-width: 0; }
-    input, select, textarea { min-height: 44px; padding: 8px 10px; border: 1px solid var(--pt-border); border-radius: 8px; font: inherit; font-size: 14px; color: var(--pt-fg); background: #fff; width: 100%; }
-    textarea { min-height: 72px; resize: vertical; }
-    input:disabled, select:disabled { background: var(--pt-hover); color: var(--pt-muted); }
-    .check { display: inline-flex; align-items: center; gap: 8px; font-size: 14px; min-height: 44px; cursor: pointer; }
-    .check input { width: 18px; height: 18px; min-height: 0; }
 
     .form-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px; }
     .form-grid .wide { grid-column: 1 / -1; }
 
-    .tree { list-style: none; }
-    .row { display: flex; align-items: center; gap: 8px; padding: 8px 0; border-bottom: 1px solid var(--pt-border); min-width: 0; }
-    .row:last-child { border-bottom: none; }
+    .tree { list-style: none; display: flex; flex-direction: column; gap: 6px; }
+    .row { display: flex; align-items: center; gap: 8px; padding: 10px 8px 10px calc(12px + var(--depth, 0) * 16px); border-radius: 12px; background: var(--pt-surface); border: 1px solid var(--pt-border); min-width: 0; }
+    .row.is-group { background: #1c1f40; }
     .row.archived { opacity: 0.5; }
-    .row .title { flex: 1; min-width: 0; overflow-wrap: anywhere; }
-    .row .title.group { font-weight: 700; }
-    .kind { font-size: 11px; font-weight: 700; text-transform: uppercase; padding: 2px 6px; border-radius: 4px; background: var(--pt-hover); color: var(--pt-muted); white-space: nowrap; }
-    .meta { font-size: 12px; color: var(--pt-muted); white-space: nowrap; }
+    .row-main { flex: 1; min-width: 0; }
+    .row-title { display: flex; align-items: baseline; gap: 8px; min-width: 0; }
+    .row .title { min-width: 0; overflow-wrap: anywhere; font-size: 14px; line-height: 1.35; }
+    .row .title.group { font-weight: 800; }
+    .kind { flex-shrink: 0; font-size: 10px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.06em; padding: 2px 6px; border-radius: 6px; background: var(--pt-hover); color: var(--pt-muted); }
+    .kind--task { color: var(--mint); background: rgba(52, 211, 153, 0.12); }
+    .kind--week, .kind--phase { color: var(--pt-accent); background: rgba(139, 92, 246, 0.15); }
+    .kind--section { color: var(--sky); background: rgba(56, 189, 248, 0.12); }
+    .meta { margin-top: 2px; font-size: 12px; color: var(--pt-muted); }
+    .meta .xp { color: var(--gold); font-weight: 800; }
     .actions { display: flex; gap: 2px; flex-shrink: 0; }
-    .icon-btn { width: 40px; height: 40px; display: inline-flex; align-items: center; justify-content: center; border: none; border-radius: 6px; background: transparent; color: var(--pt-muted); cursor: pointer; }
+    .icon-btn { width: 38px; height: 38px; display: inline-flex; align-items: center; justify-content: center; border: none; border-radius: 10px; background: transparent; color: var(--pt-muted); cursor: pointer; }
     .icon-btn:hover { background: var(--pt-hover); color: var(--pt-fg); }
-    .icon-btn:disabled { opacity: 0.3; cursor: default; }
-    .icon-btn .pt-icon { width: 16px; height: 16px; }
+    .icon-btn:disabled { opacity: 0.25; cursor: default; }
+    .icon-btn .pt-icon { width: 17px; height: 17px; }
 
-    dialog { margin: auto; width: min(640px, calc(100% - 24px)); max-height: calc(100dvh - 24px); overflow: auto; border: 1px solid var(--pt-border); border-radius: 12px; padding: 20px; background: var(--pt-surface); color: var(--pt-fg); }
-    dialog::backdrop { background: rgba(0, 0, 0, 0.3); }
+    .people { list-style: none; display: flex; flex-direction: column; gap: 8px; }
+    .person { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; padding: 12px; border-radius: 14px; background: var(--pt-surface); border: 1px solid var(--pt-border); }
+    .person .pt-avatar { background: linear-gradient(135deg, var(--sky), var(--pt-accent)); }
+    .person-info { flex: 1; min-width: 140px; }
+    .person-name { font-weight: 800; overflow-wrap: anywhere; }
+    .person-email { font-size: 12px; color: var(--pt-muted); overflow-wrap: anywhere; }
+    .owner-tag { display: inline-flex; align-items: center; gap: 4px; padding: 4px 10px; border-radius: 999px; background: rgba(255, 200, 71, 0.15); color: var(--gold); font-size: 12px; font-weight: 800; }
+    .owner-tag .pt-icon { width: 14px; height: 14px; }
+    .seg { display: flex; flex-wrap: wrap; gap: 4px; padding: 4px; border-radius: 12px; background: var(--pt-bg); border: 1px solid var(--pt-border); }
+    .seg button { display: inline-flex; align-items: center; gap: 5px; min-height: 36px; padding: 0 10px; border: none; border-radius: 8px; background: transparent; color: var(--pt-muted); font: inherit; font-size: 13px; font-weight: 700; cursor: pointer; }
+    .seg button .pt-icon { width: 14px; height: 14px; }
+    .seg button[aria-pressed="true"] { background: var(--pt-hover); color: var(--pt-fg); box-shadow: inset 0 0 0 1px var(--pt-accent); }
+    .seg button[data-level="none"][aria-pressed="true"] { box-shadow: inset 0 0 0 1px var(--pt-danger); color: var(--pt-danger); }
+    .seg button[data-level="write"][aria-pressed="true"] { box-shadow: inset 0 0 0 1px var(--mint); color: var(--mint); }
+    .legend { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 8px; margin-bottom: 14px; font-size: 12px; color: var(--pt-muted); }
+    .legend strong { color: var(--pt-fg); }
+
+    dialog#editor { margin: auto; width: min(640px, calc(100% - 24px)); max-height: calc(100dvh - 24px); overflow: auto; border: 1px solid var(--pt-border); border-radius: 18px; padding: 20px; background: var(--pt-surface); color: var(--pt-fg); }
+    dialog#editor::backdrop { background: rgba(5, 6, 20, 0.6); backdrop-filter: blur(4px); }
     .dialog-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px; }
     .dialog-foot { display: flex; justify-content: flex-end; gap: 8px; margin-top: 16px; flex-wrap: wrap; }
     .hint { font-size: 12px; color: var(--pt-muted); font-weight: 400; }
@@ -72,44 +110,69 @@
 
     .resources { margin-top: 16px; padding-top: 16px; border-top: 1px solid var(--pt-border); }
     .res-row { display: flex; align-items: center; gap: 8px; padding: 6px 0; font-size: 14px; }
-    .res-row a { flex: 1; min-width: 0; overflow-wrap: anywhere; color: var(--pt-accent); }
+    .res-row a { flex: 1; min-width: 0; overflow-wrap: anywhere; color: var(--sky); }
     .res-add { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 2fr) auto; gap: 8px; margin-top: 8px; }
 
     @media (max-width: 600px) {
-      body { padding: 16px 12px 40px; }
-      .meta { display: none; }
+      body { padding: 12px 12px 40px; }
+      .row { flex-wrap: wrap; padding-left: calc(10px + min(var(--depth, 0), 3) * 10px); }
+      .row-main { flex-basis: 100%; }
+      .actions { width: 100%; justify-content: flex-end; border-top: 1px solid var(--pt-border); padding-top: 4px; }
       .res-add { grid-template-columns: minmax(0, 1fr); }
+      .tabs button span { font-size: 13px; }
     }
   </style>
 </head>
 <body>
   <div class="container" id="app">
-    <h1>Manage tasks</h1>
-    <p class="muted">Changes show up on the tracker the next time it is opened. Archived items are hidden but keep their history and earned XP.</p>
-
-    <div class="toolbar">
-      <label class="field grow">Tracker<select id="tracker-select"></select></label>
+    <div class="page-head">
+      <span data-icon="sliders"></span>
+      <div>
+        <h1>Manage</h1>
+        <p class="muted">Tasks, access and settings for trackers you own</p>
+      </div>
     </div>
 
-    <form class="card" id="tracker-form">
-      <h2>Tracker settings</h2>
-      <div class="form-grid">
-        <label class="field">Name<input id="tr-name" maxlength="80" required></label>
-        <label class="field">Icon<select id="tr-icon"></select></label>
-        <label class="field">Order on Home<input id="tr-sort" type="number" min="0" max="999" step="1"></label>
-        <label class="field wide">Description<input id="tr-desc" maxlength="200"></label>
-      </div>
-      <div class="dialog-foot"><button class="pt-btn pt-btn--primary pt-needs-online" type="submit">Save tracker</button></div>
-    </form>
+    <label class="field picker">Tracker<select id="tracker-select"></select></label>
 
-    <div class="card">
-      <div class="toolbar" style="margin-top: 0">
-        <h2 class="grow" style="margin: 0">Tasks and groups</h2>
+    <div class="tabs" role="tablist" aria-label="Manage sections">
+      <button type="button" role="tab" id="tab-tasks" data-tab="tasks" aria-controls="panel-tasks" aria-selected="true"><span data-icon="list"></span><span>Tasks</span></button>
+      <button type="button" role="tab" id="tab-access" data-tab="access" aria-controls="panel-access" aria-selected="false" tabindex="-1"><span data-icon="users"></span><span>Access</span></button>
+      <button type="button" role="tab" id="tab-settings" data-tab="settings" aria-controls="panel-settings" aria-selected="false" tabindex="-1"><span data-icon="settings"></span><span>Settings</span></button>
+    </div>
+
+    <section id="panel-tasks" role="tabpanel" aria-labelledby="tab-tasks">
+      <div class="toolbar">
         <label class="check"><input type="checkbox" id="show-archived">Show archived</label>
+        <span class="grow"></span>
         <button class="pt-btn pt-btn--primary pt-needs-online" type="button" id="add-root"></button>
       </div>
+      <p class="muted" style="margin-bottom: 10px">Archived items are hidden but keep their history and earned XP.</p>
       <ul class="tree" id="tree"></ul>
-    </div>
+    </section>
+
+    <section id="panel-access" role="tabpanel" aria-labelledby="tab-access" hidden>
+      <div class="card legend">
+        <span><strong>No access</strong>: tracker is hidden</span>
+        <span><strong>Read only</strong>: can view tasks and progress</span>
+        <span><strong>Read &amp; write</strong>: can complete tasks and earn XP</span>
+        <span id="legend-review" hidden><strong>Reviewer</strong>: approves completions</span>
+      </div>
+      <ul class="people" id="people"></ul>
+      <p class="muted" style="margin-top: 12px">People appear here once they have signed in and been approved.</p>
+    </section>
+
+    <section id="panel-settings" role="tabpanel" aria-labelledby="tab-settings" hidden>
+      <form class="card" id="tracker-form">
+        <div class="form-grid">
+          <label class="field wide">Name<input id="tr-name" maxlength="80" required></label>
+          <label class="field wide">Description<input id="tr-desc" maxlength="200"></label>
+          <label class="field">Icon<select id="tr-icon"></select></label>
+          <label class="field">Order on Home<input id="tr-sort" type="number" min="0" max="999" step="1"></label>
+        </div>
+        <div class="dialog-foot"><button class="pt-btn pt-btn--primary pt-needs-online" type="submit">Save tracker</button></div>
+      </form>
+    </section>
   </div>
 
   <dialog id="editor" aria-labelledby="editor-title">
@@ -203,7 +266,7 @@
     }
 
     async function loadTrackers() {
-      trackers = await q(PT.client.from('trackers').select('id, slug, name, description, icon, sort_order, created_by').eq('created_by', PT.me.id).order('sort_order').order('name'));
+      trackers = await q(PT.client.from('trackers').select('id, slug, name, description, icon, sort_order, created_by, requires_approval').eq('created_by', PT.me.id).order('sort_order').order('name'));
       const select = $('tracker-select');
       select.innerHTML = trackers.map(t => `<option value="${PT.esc(t.id)}">${PT.esc(t.name)}</option>`).join('');
       const wanted = params.get('t');
@@ -220,7 +283,78 @@
       $('tr-sort').value = tracker.sort_order || 0;
       $('tr-icon').innerHTML = PT.TRACKER_ICONS.map(i => `<option value="${i}">${i}</option>`).join('');
       $('tr-icon').value = PT.TRACKER_ICONS.includes(tracker.icon) ? tracker.icon : 'target';
-      await loadNodes();
+      $('legend-review').hidden = !tracker.requires_approval;
+      await Promise.all([loadNodes(), loadAccess()]);
+    }
+
+    const LEVELS = [
+      { level: 'none', label: 'No access', icon: 'lock' },
+      { level: 'read', label: 'Read only', icon: 'eye' },
+      { level: 'write', label: 'Read & write', icon: 'pencil' },
+      { level: 'review', label: 'Reviewer', icon: 'shield' },
+    ];
+
+    async function loadAccess() {
+      const people = await PT.rpc('pt_manage_access', { p_tracker: tracker.id });
+      const list = $('people');
+      list.innerHTML = '';
+      people.forEach(person => {
+        const li = document.createElement('li');
+        li.className = 'person';
+        li.innerHTML = `
+          <span class="pt-avatar">${PT.esc(PT.initials(person.name))}</span>
+          <div class="person-info">
+            <div class="person-name">${PT.esc(person.name)}</div>
+            <div class="person-email">${PT.esc(person.email)}</div>
+          </div>`;
+        if (person.is_owner) {
+          li.insertAdjacentHTML('beforeend', `<span class="owner-tag">${PT.icon('crown')}Owner</span>`);
+        } else {
+          const seg = document.createElement('div');
+          seg.className = 'seg';
+          seg.setAttribute('role', 'group');
+          seg.setAttribute('aria-label', `Access for ${person.name}`);
+          LEVELS.filter(l => l.level !== 'review' || tracker.requires_approval || person.level === 'review').forEach(l => {
+            const b = document.createElement('button');
+            b.type = 'button';
+            b.className = 'pt-needs-online';
+            b.dataset.level = l.level;
+            b.setAttribute('aria-pressed', String(person.level === l.level));
+            b.innerHTML = PT.icon(l.icon) + `<span>${PT.esc(l.label)}</span>`;
+            b.addEventListener('click', () => setAccess(person, l.level, seg));
+            seg.appendChild(b);
+          });
+          li.appendChild(seg);
+        }
+        list.appendChild(li);
+      });
+    }
+
+    async function setAccess(person, level, seg) {
+      if (person.level === level) return;
+      const previous = person.level;
+      const mark = value => seg.querySelectorAll('button').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.level === value)));
+      mark(level);
+      seg.classList.add('pt-busy');
+      try {
+        await PT.rpc('pt_manage_set_access', { p_tracker: tracker.id, p_user: person.user_id, p_level: level });
+        person.level = level;
+        PT.toast(`${person.name}: ${LEVELS.find(l => l.level === level).label}`);
+      } catch (error) {
+        mark(previous);
+        PT.toast(error.message, 'error');
+      } finally {
+        seg.classList.remove('pt-busy');
+      }
+    }
+
+    function selectTab(name) {
+      document.querySelectorAll('.tabs [role="tab"]').forEach(tab => {
+        const on = tab.dataset.tab === name;
+        tab.setAttribute('aria-selected', String(on));
+        tab.tabIndex = on ? 0 : -1;
+        $(`panel-${tab.dataset.tab}`).hidden = !on;
+      });
     }
 
     async function loadNodes() {
@@ -241,19 +375,21 @@
           const archived = !!node.archived_at || hiddenAncestor;
           if (archived && !showArchived) return;
           const li = document.createElement('li');
-          li.className = 'row' + (archived ? ' archived' : '');
-          li.style.paddingLeft = `${depth * 20}px`;
           const isGroup = GROUP_KINDS.includes(node.kind);
+          li.className = 'row' + (archived ? ' archived' : '') + (isGroup ? ' is-group' : '');
+          li.style.setProperty('--depth', Math.min(depth, 6));
           const meta = [
-            node.kind === 'task' ? `${node.xp} XP` : '',
-            node.week_number ? `Week ${node.week_number}` : '',
-            node.difficulty || '',
+            node.kind === 'task' ? `<span class="xp">+${Number(node.xp)} XP</span>` : '',
+            node.week_number ? `Week ${Number(node.week_number)}` : '',
+            node.difficulty ? PT.esc(node.difficulty) : '',
+            node.archived_at ? 'Archived' : '',
           ].filter(Boolean).join(' · ');
           li.innerHTML = `
-            <span class="kind">${PT.esc(node.kind)}</span>
-            <span class="title ${isGroup ? 'group' : ''}">${PT.esc(node.title)}</span>
-            <span class="meta">${PT.esc(meta)}</span>
-            <span class="actions"></span>`;
+            <div class="row-main">
+              <div class="row-title"><span class="kind kind--${PT.esc(node.kind)}">${PT.esc(node.kind)}</span><span class="title ${isGroup ? 'group' : ''}">${PT.esc(node.title)}</span></div>
+              ${meta ? `<div class="meta">${meta}</div>` : ''}
+            </div>
+            <div class="actions"></div>`;
           const actions = li.querySelector('.actions');
           const add = (iconName, label, fn, disabled) => {
             const b = document.createElement('button');
@@ -266,10 +402,8 @@
             b.addEventListener('click', fn);
             actions.appendChild(b);
           };
-          add('arrow-right', 'Move up', () => move(node, -1), index === 0);
-          actions.lastChild.style.transform = 'rotate(-90deg)';
-          add('arrow-right', 'Move down', () => move(node, 1), index === siblings.length - 1);
-          actions.lastChild.style.transform = 'rotate(90deg)';
+          add('arrow-up', 'Move up', () => move(node, -1), index === 0);
+          add('arrow-down', 'Move down', () => move(node, 1), index === siblings.length - 1);
           if (isGroup && !node.archived_at) add('plus', 'Add inside', () => openEditor(null, node.id));
           add('pencil', 'Edit', () => openEditor(node));
           if (node.archived_at) add('rotate-ccw', 'Restore', () => setArchived(node, false));
@@ -485,6 +619,7 @@
     async function start() {
       await PT.requireAuth();
       PT.mountNav('#app');
+      PT.hydrateIcons();
       $('add-root').innerHTML = PT.icon('plus') + '<span>Add item</span>';
       $('res-add').innerHTML = PT.icon('plus') + '<span>Add link</span>';
       $('editor-close').innerHTML = PT.icon('x');
@@ -510,6 +645,17 @@
       $('editor-close').addEventListener('click', () => $('editor').close());
       $('res-add').addEventListener('click', addResource);
       $('tracker-form').addEventListener('submit', saveTracker);
+      document.querySelectorAll('.tabs [role="tab"]').forEach((tab, i, tabs) => {
+        tab.addEventListener('click', () => selectTab(tab.dataset.tab));
+        tab.addEventListener('keydown', event => {
+          const step = event.key === 'ArrowRight' ? 1 : event.key === 'ArrowLeft' ? -1 : 0;
+          if (!step) return;
+          event.preventDefault();
+          const nextTab = tabs[(i + step + tabs.length) % tabs.length];
+          selectTab(nextTab.dataset.tab);
+          nextTab.focus();
+        });
+      });
       PT.hideGate();
     }
 
