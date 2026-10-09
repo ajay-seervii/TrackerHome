@@ -1,4 +1,4 @@
-# Pivot Tracker - Project Context
+# TrackerHome - Project Context
 
 > Reference for every tracker in this repo: the home page, the Godot tracker, the 12-week career tracker, and any new trackers (for example, a child's goals).
 
@@ -30,7 +30,7 @@ Pivot-Tracker/
 ├── app.css              # Shared nav bar, sign-in gate, toasts, buttons
 ├── db/schema.sql        # DDL: tables, constraints, functions, security (re-runnable)
 ├── db/seed.sql          # DML: owner, trackers, badges, built-in task lists (re-runnable)
-└── GODOT_TRACKER_CONTEXT.md
+└── PROJECT_CONTEXT.md
 ```
 
 All icons are inline SVG from the set in `app.js` (`PT.icon(name)`). Do not use emoji.
