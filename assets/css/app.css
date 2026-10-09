@@ -14,7 +14,17 @@ html.pt-locked body > *:not(#pt-gate):not(script) {
   visibility: hidden;
 }
 
+/* The gate always uses the Home look, whatever theme the page underneath has. */
 .pt-gate {
+  --pt-bg: #0d0e1c;
+  --pt-surface: #171932;
+  --pt-fg: #f2f3ff;
+  --pt-muted: #9ca3cf;
+  --pt-border: #272a52;
+  --pt-accent: #8b5cf6;
+  --pt-on-accent: #ffffff;
+  --pt-hover: #1f2245;
+  --pt-danger: #ff6b81;
   position: fixed;
   inset: 0;
   z-index: 5000;
@@ -22,13 +32,26 @@ html.pt-locked body > *:not(#pt-gate):not(script) {
   align-items: center;
   justify-content: center;
   padding: 24px;
-  background: var(--pt-bg, #f5f1e8);
-  color: var(--pt-fg, #2d2d2d);
+  background:
+    radial-gradient(900px 500px at 10% -10%, rgba(139, 92, 246, 0.25), transparent 60%),
+    radial-gradient(700px 400px at 100% 0%, rgba(255, 92, 168, 0.15), transparent 60%),
+    var(--pt-bg);
+  color: var(--pt-fg);
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
 }
 
 .pt-gate[hidden] {
   display: none;
+}
+
+/* Quick checks finish before the spinner and text fade in, so nothing flashes. */
+.pt-gate--loading .pt-gate-box {
+  animation: pt-gate-in 0.3s ease 0.5s both;
+}
+
+@keyframes pt-gate-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
 }
 
 .pt-gate-box {

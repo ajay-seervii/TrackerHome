@@ -246,6 +246,7 @@
       gate.setAttribute('role', 'status');
       document.body.appendChild(gate);
     }
+    gate.classList.toggle('pt-gate--loading', !isError);
     gate.innerHTML = `<div class="pt-gate-box">${isError ? icon('alert') : '<span class="pt-spinner" aria-hidden="true"></span>'}<p>${esc(message)}</p><div class="pt-gate-actions"></div></div>`;
     const bar = gate.querySelector('.pt-gate-actions');
     (actions || []).forEach(a => bar.appendChild(a));
